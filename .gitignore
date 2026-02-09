@@ -1,0 +1,65 @@
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build output
+ccl
+dist/
+build/
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Test coverage & profiling
+coverage.txt
+coverage.html
+*.prof
+*.pprof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+*.jsonl
+
+# Runtime data
+.config/ccl/
+
+# Claude Code local data (keep .claude/settings.json for shared config)
+.claude/settings.local.json
+.claude/data/
+.claude/memory/
+
+# Documentation (generated/scratch, not source of truth)
+docs/
+
+# Temp / WIP
+*.tmp
+*.bak
+wip.md
+
+# Repomix
+.repomixignore
