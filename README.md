@@ -7,15 +7,15 @@ A lightweight Go launcher for Claude Code that enables switching between LLM pro
 ## Installation
 
 ```bash
-git clone https://github.com/vampirefrog/cclauncher ~/go/src/cclauncher
-cd ~/go/src/cclauncher
+go install github.com/dotcommander/cclauncher/cmd/ccl@latest
+```
 
-# Build and install (requires just)
+Or build from source:
+
+```bash
+git clone https://github.com/dotcommander/cclauncher
+cd cclauncher
 just install
-
-# Or manually
-go build -ldflags='-s -w' -o ccl ./cmd/ccg
-ln -sf $(pwd)/ccl ~/go/bin/ccl
 ```
 
 Ensure `~/go/bin` is in your `PATH`.
