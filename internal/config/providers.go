@@ -1,6 +1,6 @@
 package config
 
-import "github.com/ccg/ccg/internal/utils"
+import "github.com/dotcommander/cclauncher/internal/utils"
 
 // ProviderConfig holds the configuration for a provider
 type ProviderConfig struct {

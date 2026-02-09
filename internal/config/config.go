@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ccg/ccg/internal/utils"
+	"github.com/dotcommander/cclauncher/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 

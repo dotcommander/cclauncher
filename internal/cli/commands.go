@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ccg/ccg/internal/cli/handlers"
-	"github.com/ccg/ccg/internal/config"
+	"github.com/dotcommander/cclauncher/internal/cli/handlers"
+	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/spf13/cobra"
 )
 

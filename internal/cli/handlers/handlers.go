@@ -8,8 +8,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ccg/ccg/internal/config"
-	"github.com/ccg/ccg/internal/process"
+	"github.com/dotcommander/cclauncher/internal/config"
+	"github.com/dotcommander/cclauncher/internal/process"
 	"github.com/spf13/cobra"
 )
 

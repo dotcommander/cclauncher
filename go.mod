@@ -1,4 +1,4 @@
-module github.com/ccg/ccg
+module github.com/dotcommander/cclauncher
 
 go 1.24.0
 
