@@ -6,7 +6,7 @@
 #   ${VAR:-default}  - replaced with env var value, or "default" if unset
 #
 # Priority: config file value (with env interpolation) > code default
-# Additionally, CCG_<PROVIDER>_API_KEY env vars override per-provider API keys.
+# Additionally, CCL_<PROVIDER>_API_KEY env vars override per-provider API keys.
 
 providers:
   synthetic:
@@ -57,7 +57,6 @@ providers:
 
 cli:
   defaultProvider: "synthetic"
-  version: "1.0.0"
 
 optimization:
   disableNonessentialTraffic: true
