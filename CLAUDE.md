@@ -98,3 +98,27 @@ Claude Code uses the Anthropic Messages API format, which expects:
 1. **"unknown provider" error**: Rebuild and reinstall after adding provider
 2. **404 API route not found**: Check for duplicate `/v1` in BaseURL
 3. **Z.ai `/v4/v1/messages` 404**: Use `/api/anthropic` not `/api/paas/v4`
+
+### Environment Variable Overrides
+
+Per-provider API keys can be overridden using environment variables:
+```bash
+export CCL_SYNTHETIC_API_KEY="your-key"
+export CCL_ZAI_API_KEY="your-key"
+```
+
+Format: `CCL_<PROVIDER>_API_KEY` where `<PROVIDER>` is the provider name in uppercase.
+
+Priority order:
+1. `CCL_<PROVIDER>_API_KEY` environment variable (highest)
+2. Config file `authToken` field (with environment variable interpolation)
+3. Default value from built-in provider template
+
+### Authentication Validation
+
+CCL validates that the selected provider has authentication configured before launching. If authentication is missing, you'll see:
+```
+Error: provider 'synthetic' requires authentication. Set SYNTHETIC_API_KEY environment variable or configure in config.yaml
+```
+
+This prevents confusing 401/403 errors from the API later.
