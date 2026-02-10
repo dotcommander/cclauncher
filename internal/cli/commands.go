@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dotcommander/cclauncher/internal/cli/handlers"
 	"github.com/dotcommander/cclauncher/internal/config"
@@ -21,35 +20,27 @@ func newRootCmd() *cobra.Command {
 		Short: "CCL - Claude Code Launcher",
 		Long: "Launch Claude Code with different LLM providers.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			created, err := config.EnsureExists()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to initialize config: %v\n", err)
+			// Skip config check for version and update commands
+			if cmd.Name() == "version" || cmd.Name() == "update" {
 				return nil
 			}
-			if created {
-				fmt.Fprintf(os.Stderr, "Created default config at %s\n", config.GetConfigPath())
+
+			if _, err := config.EnsureExists(); err != nil {
+				return fmt.Errorf("failed to initialize config: %w", err)
 			}
 			return nil
 		},
 		Example: `  ccl                  # Launch with default provider
-  ccl -p kimi2         # Launch with Kimi-K2.5
-  ccl -p deepseek      # Launch with DeepSeek-V3.2
-  ccl -p minimax       # Launch with MiniMax-M2
-  ccl -p claude        # Launch with Claude (OAuth)
-  ccl -p claude2       # Launch with Claude (second account)
-  ccl -p qwen          # Launch with Qwen3-VL
-  ccl -p qwen3-coder   # Launch with Qwen3-Coder
-  ccl -p zai           # Launch with Z.ai
-  ccl -p llamabarn     # Launch with LlamaBarn
-  ccl -p synthetic     # Launch with Synthetic.new`,
+  ccl -p <provider>    # Launch with specific provider (see config.yaml)`,
 		Args: cobra.ArbitraryArgs,
 		RunE: handlers.HandleCode,
 	}
 
 	rootCmd.Flags().StringP("provider", "p", "",
-		"LLM provider (synthetic, kimi2, deepseek, minimax, qwen, qwen3-coder, claude, claude2, zai, llamabarn)")
+		"LLM provider (see providers in config.yaml)")
 
-	rootCmd.AddCommand(newVersionCmd(), newCleanupCmd(), newRefsCmd())
+	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newUpdateCmd())
 
 	return rootCmd
 }
@@ -64,26 +55,20 @@ func newVersionCmd() *cobra.Command {
 	}
 }
 
-func newCleanupCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "cleanup",
-		Short: "Cleanup stale session references",
-		Long: `Reset the reference count for stale sessions.
+func newUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update CCL to the latest version",
+		Long: `Update CCL to the latest version from GitHub.
 
-This is useful when ccl sessions crash and leave stale reference counts.
-The reference count is used to track concurrent sessions.`,
-		RunE: handlers.HandleCleanup,
+This command uses 'go install' to update the binary.
+Requires Go to be installed on your system.`,
+		Example: `  ccl update         # Update to latest version
+  ccl update --check # Check for updates without installing`,
+		RunE: handlers.HandleUpdate,
 	}
-}
 
-func newRefsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "refs",
-		Short: "Show current reference count",
-		Long: `Display the current session reference count.
+	cmd.Flags().Bool("check", false, "Check for updates without installing")
 
-This shows how many active ccl sessions are currently tracked.
-Useful for debugging concurrent session issues.`,
-		RunE: handlers.HandleRefs,
-	}
+	return cmd
 }
