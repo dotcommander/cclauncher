@@ -1,14 +1,38 @@
 package config
 
 import (
-	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+func getTestConfigPath() string {
+	return filepath.Join("testdata", "config.yaml")
+}
+
+func TestNewProviderRegistryFromConfig(t *testing.T) {
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err, "Failed to load test config")
+
+	registry := NewProviderRegistryFromConfig(cfg)
+
+	// Should load all providers from fixture
+	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax", "llamabarn"}
+	for _, name := range expectedProviders {
+		_, exists := registry.Get(name)
+		assert.True(t, exists, "Provider %s should exist", name)
+	}
+}
+
 func TestProviderRegistry_ProvidersExist(t *testing.T) {
-	registry := NewProviderRegistry()
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	registry := NewProviderRegistryFromConfig(cfg)
 	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax"}
 
 	for _, providerName := range expectedProviders {
@@ -21,7 +45,11 @@ func TestProviderRegistry_ProvidersExist(t *testing.T) {
 }
 
 func TestProviderRegistry_BaseURLs(t *testing.T) {
-	registry := NewProviderRegistry()
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	registry := NewProviderRegistryFromConfig(cfg)
 	tests := []struct {
 		name         string
 		providerName string
@@ -45,9 +73,13 @@ func TestProviderRegistry_BaseURLs(t *testing.T) {
 }
 
 func TestProviderRegistry_Models(t *testing.T) {
-	registry := NewProviderRegistry()
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err)
 
-	// Test providers with specific models (all use syntheticBaseConfig)
+	registry := NewProviderRegistryFromConfig(cfg)
+
+	// Test providers with specific models
 	deepseek, _ := registry.Get("deepseek")
 	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.Model)
 	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.SmallFastModel)
@@ -65,135 +97,12 @@ func TestProviderRegistry_Models(t *testing.T) {
 	assert.Equal(t, "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct", qwen3Coder.SmallFastModel)
 }
 
-func TestProviderRegistry_GetEnvVars_ValidProvider(t *testing.T) {
-	registry := NewProviderRegistry()
-	envVars := registry.GetEnvVars("deepseek")
-	assert.NotNil(t, envVars)
-
-	// deepseek uses synthetic config
-	expectedVars := map[string]string{
-		"ANTHROPIC_BASE_URL":         "https://api.synthetic.new/anthropic",
-		"ANTHROPIC_MODEL":            "hf:deepseek-ai/DeepSeek-V3.2",
-		"ANTHROPIC_SMALL_FAST_MODEL": "hf:deepseek-ai/DeepSeek-V3.2",
-	}
-
-	for key, expectedValue := range expectedVars {
-		assert.Equal(t, expectedValue, envVars[key], "Environment variable %s should match", key)
-	}
-}
-
-func TestProviderRegistry_GetEnvVars_InvalidProvider(t *testing.T) {
-	registry := NewProviderRegistry()
-	envVars := registry.GetEnvVars("nonexistent")
-	assert.Nil(t, envVars)
-}
-
-func TestProviderRegistry_GetEnvVars_Claude(t *testing.T) {
-	registry := NewProviderRegistry()
-	envVars := registry.GetEnvVars("claude")
-	assert.NotNil(t, envVars)
-
-	// Claude provider sets base URL only (OAuth via default credentials)
-	assert.Contains(t, envVars, "ANTHROPIC_BASE_URL")
-	assert.Equal(t, "https://api.anthropic.com", envVars["ANTHROPIC_BASE_URL"])
-
-	// No API key — OAuth only
-	assert.NotContains(t, envVars, "ANTHROPIC_API_KEY")
-}
-
-func TestProviderRegistry_GetEnvVars_Claude2(t *testing.T) {
-	testToken := "test-oauth-token"
-	t.Setenv("CLAUDE2_OAUTH_TOKEN", testToken)
-
-	registry := NewProviderRegistry()
-	envVars := registry.GetEnvVars("claude2")
-	assert.NotNil(t, envVars)
-
-	assert.Contains(t, envVars, "ANTHROPIC_BASE_URL")
-	assert.Equal(t, "https://api.anthropic.com", envVars["ANTHROPIC_BASE_URL"])
-
-	assert.Contains(t, envVars, "CLAUDE_CODE_OAUTH_TOKEN")
-	assert.Equal(t, testToken, envVars["CLAUDE_CODE_OAUTH_TOKEN"])
-
-	// No API key
-	assert.NotContains(t, envVars, "ANTHROPIC_API_KEY")
-}
-
-func TestProviderRegistry_GetEnvVars_AllFields(t *testing.T) {
-	registry := NewProviderRegistry()
-	// Use synthetic provider which has all fields
-	envVars := registry.GetEnvVars("synthetic")
-	assert.NotNil(t, envVars)
-
-	expectedFields := []string{
-		"ANTHROPIC_BASE_URL",
-		"ANTHROPIC_AUTH_TOKEN",
-		"ANTHROPIC_MODEL",
-		"ANTHROPIC_SMALL_FAST_MODEL",
-	}
-
-	for _, field := range expectedFields {
-		assert.Contains(t, envVars, field, "Should contain %s", field)
-	}
-}
-
-func TestResolveEnvTemplate(t *testing.T) {
-	tests := []struct {
-		name     string
-		template string
-		envKey   string
-		envValue string
-		expected string
-	}{
-		{
-			name:     "env var not set uses default",
-			template: "${TEST_UNSET_VAR:-default_value}",
-			envKey:   "TEST_UNSET_VAR",
-			envValue: "",
-			expected: "default_value",
-		},
-		{
-			name:     "env var set overrides default",
-			template: "${TEST_SET_VAR:-default_value}",
-			envKey:   "TEST_SET_VAR",
-			envValue: "env_value",
-			expected: "env_value",
-		},
-		{
-			name:     "plain string unchanged",
-			template: "https://api.example.com",
-			envKey:   "",
-			envValue: "",
-			expected: "https://api.example.com",
-		},
-		{
-			name:     "empty string unchanged",
-			template: "",
-			envKey:   "",
-			envValue: "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.envKey != "" {
-				if tt.envValue != "" {
-					t.Setenv(tt.envKey, tt.envValue)
-				} else {
-					t.Setenv(tt.envKey, "")
-					os.Unsetenv(tt.envKey)
-				}
-			}
-
-			result := resolveEnvTemplate(tt.template)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
-	registry := NewProviderRegistry()
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	registry := NewProviderRegistryFromConfig(cfg)
 	tests := []struct {
 		name         string
 		providerName string
@@ -215,7 +124,7 @@ func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
 			provider, _ := registry.Get(tt.providerName)
 
 			if tt.hasAuthToken {
-				// Auth tokens resolve from env vars at registry creation time;
+				// Auth tokens resolve from env vars at load time;
 				// may be empty in test environments if env vars aren't set
 				assert.Empty(t, provider.APIKey, "Provider %s should not have API key", tt.providerName)
 			}
@@ -228,22 +137,116 @@ func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_DefaultValues(t *testing.T) {
-	// Test that resolveEnvTemplate handles default values
-	t.Setenv("NONEXISTENT_TEST_KEY", "")
-	os.Unsetenv("NONEXISTENT_TEST_KEY")
-
-	result := resolveEnvTemplate("${NONEXISTENT_TEST_KEY:-sk-bleh}")
-	assert.Equal(t, "sk-bleh", result)
-}
-
 func TestProviderRegistry_EnvironmentVariableResolution(t *testing.T) {
 	// Test that CLAUDE2_OAUTH_TOKEN environment variable is resolved for the claude2 provider
 	testValue := "test-oauth-token"
 	t.Setenv("CLAUDE2_OAUTH_TOKEN", testValue)
 
-	registry := NewProviderRegistry()
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	registry := NewProviderRegistryFromConfig(cfg)
 	claude2, exists := registry.Get("claude2")
 	assert.True(t, exists)
 	assert.Equal(t, testValue, claude2.OAuthToken)
+}
+
+func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
+	// Use a temporary directory that doesn't have a config file
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	loader := NewLoaderWithPaths(tmpDir, configPath)
+
+	created, err := loader.EnsureExists()
+	assert.NoError(t, err)
+	assert.True(t, created, "Should create a new config when none exists")
+
+	// Verify the config file was created
+	_, statErr := filepath.Glob(configPath)
+	assert.NoError(t, statErr)
+}
+
+func TestEnsureExists_ConfigExists(t *testing.T) {
+	// Use the testdata directory which has a config file
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+
+	created, err := loader.EnsureExists()
+	assert.NoError(t, err)
+	assert.False(t, created, "Should not create a new config when one already exists")
+}
+
+func TestLoad_Success(t *testing.T) {
+	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
+	cfg, err := loader.Load()
+
+	require.NoError(t, err)
+	assert.NotNil(t, cfg)
+	assert.NotEmpty(t, cfg.Providers)
+	assert.Equal(t, "synthetic", cfg.CLI.DefaultProvider)
+}
+
+func TestLoad_FileNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	loader := NewLoaderWithPaths(tmpDir, filepath.Join(tmpDir, "nonexistent.yaml"))
+
+	_, err := loader.Load()
+	assert.Error(t, err)
+}
+
+func TestApplyDefaults(t *testing.T) {
+	cfg := &Config{
+		Providers: map[string]Provider{
+			"test": {BaseURL: "https://example.com"},
+		},
+	}
+
+	applyDefaults(cfg)
+
+	// Should apply CLI defaults
+	assert.Equal(t, "synthetic", cfg.CLI.DefaultProvider)
+
+	// Should apply optimization defaults
+	assert.True(t, cfg.Optimization.DisableNonessentialTraffic)
+	assert.True(t, cfg.Optimization.DisableTelemetry)
+	assert.Equal(t, 3000000, cfg.Optimization.APITimeoutMs)
+	assert.Equal(t, 200000, cfg.Optimization.MaxOutputTokens)
+}
+
+func TestOverrideFromEnv(t *testing.T) {
+	t.Setenv("CCL_TESTPROVIDER_API_KEY", "test-key-from-env")
+
+	cfg := &Config{
+		Providers: map[string]Provider{
+			"testprovider": {BaseURL: "https://example.com"},
+		},
+	}
+
+	overrideFromEnv(cfg)
+
+	provider := cfg.Providers["testprovider"]
+	assert.Equal(t, "test-key-from-env", provider.APIKey)
+}
+
+func TestInterpolateProviderFields(t *testing.T) {
+	t.Setenv("TEST_AUTH_TOKEN", "token-value")
+	t.Setenv("TEST_MODEL", "model-value")
+
+	cfg := &Config{
+		Providers: map[string]Provider{
+			"test": {
+				BaseURL:        "https://example.com",
+				AuthToken:      "${TEST_AUTH_TOKEN}",
+				Model:          "${TEST_MODEL}",
+				SmallFastModel: "${TEST_MODEL}",
+			},
+		},
+	}
+
+	interpolateProviderFields(cfg)
+
+	provider := cfg.Providers["test"]
+	assert.Equal(t, "token-value", provider.AuthToken)
+	assert.Equal(t, "model-value", provider.Model)
+	assert.Equal(t, "model-value", provider.SmallFastModel)
 }

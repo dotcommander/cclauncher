@@ -36,13 +36,12 @@ func InterpolateEnvVars(input string, strict bool) (string, error) {
 	})
 
 	if len(missingVars) > 0 {
-		slog.Debug("Environment variables not found during interpolation",
-			"missing_vars", missingVars,
-			"input", truncate(input, 100))
-
 		if strict {
 			return "", &MissingEnvVarsError{Variables: missingVars}
 		}
+		slog.Warn("Environment variables not found during interpolation",
+			"missing_vars", missingVars,
+			"input", truncate(input, 100))
 	}
 
 	return result, nil
