@@ -1,0 +1,73 @@
+# CCL Configuration
+# Place at ~/.config/cclauncher/config.yaml
+#
+# Values support environment variable interpolation:
+#   ${VAR}           - replaced with env var value (empty if unset)
+#   ${VAR:-default}  - replaced with env var value, or "default" if unset
+#
+# Priority: config file value (with env interpolation) > code default
+# Additionally, CCL_<PROVIDER>_API_KEY env vars override per-provider API keys.
+
+providers:
+  synthetic:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:moonshotai/Kimi-K2.5"
+    smallFastModel: "hf:moonshotai/Kimi-K2.5"
+  qwen:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:Qwen/Qwen3-VL-235B-A22B-Instruct"
+    smallFastModel: "hf:Qwen/Qwen3-VL-235B-A22B-Instruct"
+  qwen3-coder:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
+    smallFastModel: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
+  deepseek:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:deepseek-ai/DeepSeek-V3.2"
+    smallFastModel: "hf:deepseek-ai/DeepSeek-V3.2"
+  kimi2:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:moonshotai/Kimi-K2.5"
+    smallFastModel: "hf:moonshotai/Kimi-K2.5"
+  minimax:
+    baseUrl: "https://api.synthetic.new/anthropic"
+    authToken: "${SYNTHETIC_API_KEY}"
+    model: "hf:MiniMaxAI/MiniMax-M2"
+    smallFastModel: "hf:MiniMaxAI/MiniMax-M2"
+  claude:
+    baseUrl: "https://api.anthropic.com"
+  claude2:
+    baseUrl: "https://api.anthropic.com"
+    oauthToken: "${CLAUDE2_OAUTH_TOKEN}"
+  zai:
+    baseUrl: "https://api.z.ai/api/anthropic"
+    authToken: "${ZAI_API_KEY}"
+    model: "${ZAI_MODEL:-glm-4.7}"
+    smallFastModel: "${ZAI_SMALL_MODEL:-glm-4.5-air}"
+  llamabarn:
+    baseUrl: "${LLAMABARN_BASE_URL:-http://localhost:2276/v1}"
+    authToken: "${LLAMABARN_API_KEY}"
+    model: "${LLAMABARN_MODEL:-local}"
+    smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
+
+cli:
+  defaultProvider: "synthetic"
+
+optimization:
+  disableNonessentialTraffic: true
+  disableAutoupdater: true
+  disableTelemetry: true
+  disableErrorReporting: true
+  disableCostWarnings: true
+  apiTimeoutMs: 3000000       # 50-minute timeout
+  maxOutputTokens: 200000
+  nodeMaxOldSpaceSize: 8192   # MB for Node.js heap
+
+# Router (optional) - override model routing
+# router:
+#   default: "deepseek:hf:deepseek-ai/DeepSeek-V3.2"
