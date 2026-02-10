@@ -1,6 +1,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config is the main configuration for CCG
+//go:embed default-config.yaml
+var defaultConfigYAML []byte
+
+// Version is set at build time via -ldflags
+var Version = "dev"
+
+// Config is the main configuration for CCL
 type Config struct {
 	Providers    map[string]Provider `json:"providers" yaml:"providers"`
 	Router       RouterConfig        `json:"router,omitempty" yaml:"router,omitempty"`
@@ -96,7 +103,6 @@ type ResponseFormat struct {
 // CLIConfig contains CLI-specific configuration
 type CLIConfig struct {
 	DefaultProvider string `json:"defaultProvider,omitempty" yaml:"defaultProvider,omitempty"`
-	Version         string `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // getDefaultHomeDir returns the default config home directory
@@ -148,7 +154,7 @@ func EnsureExists() (bool, error) {
 	return NewLoader().EnsureExists()
 }
 
-// EnsureExists creates the config directory and default config file if they don't exist.
+// EnsureExists creates the config directory and copies the example config if needed.
 // Returns true if a new config file was created.
 func (l *Loader) EnsureExists() (bool, error) {
 	if err := os.MkdirAll(l.homeDir, 0700); err != nil {
@@ -156,12 +162,11 @@ func (l *Loader) EnsureExists() (bool, error) {
 	}
 
 	if _, err := os.Stat(l.configFile); err == nil {
-		return false, nil // already exists
+		return false, nil
 	}
 
-	cfg := DefaultConfig()
-	if err := l.Save(cfg); err != nil {
-		return false, fmt.Errorf("save default config: %w", err)
+	if err := os.WriteFile(l.configFile, defaultConfigYAML, 0600); err != nil {
+		return false, fmt.Errorf("write default config: %w", err)
 	}
 
 	return true, nil
@@ -229,53 +234,13 @@ func (l *Loader) Save(cfg *Config) error {
 	return nil
 }
 
-// DefaultConfig returns the default configuration with all providers
-// and optimization settings. Auth fields use ${VAR} syntax for
-// environment variable interpolation when saved to YAML.
+// DefaultConfig returns the default configuration with optimization settings.
+// Providers are loaded from the YAML template via EnsureExists or Load.
 func DefaultConfig() *Config {
 	return &Config{
-		Providers:    defaultProviders(),
-		CLI:          CLIConfig{DefaultProvider: "synthetic", Version: "1.0.0"},
+		Providers:    make(map[string]Provider),
+		CLI:          CLIConfig{DefaultProvider: "synthetic"},
 		Optimization: defaultOptimization(),
-	}
-}
-
-func defaultProviders() map[string]Provider {
-	synth := func(model string) Provider {
-		return Provider{
-			BaseURL:        "https://api.synthetic.new/anthropic",
-			AuthToken:      "${SYNTHETIC_API_KEY}",
-			Model:          model,
-			SmallFastModel: model,
-		}
-	}
-
-	return map[string]Provider{
-		"synthetic":   synth("hf:moonshotai/Kimi-K2.5"),
-		"qwen":        synth("hf:Qwen/Qwen3-VL-235B-A22B-Instruct"),
-		"qwen3-coder": synth("hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"),
-		"deepseek":    synth("hf:deepseek-ai/DeepSeek-V3.2"),
-		"kimi2":       synth("hf:moonshotai/Kimi-K2.5"),
-		"minimax":     synth("hf:MiniMaxAI/MiniMax-M2"),
-		"claude": {
-			BaseURL: "https://api.anthropic.com",
-		},
-		"claude2": {
-			BaseURL:    "https://api.anthropic.com",
-			OAuthToken: "${CLAUDE2_OAUTH_TOKEN}",
-		},
-		"zai": {
-			BaseURL:        "https://api.z.ai/api/anthropic",
-			AuthToken:      "${ZAI_API_KEY}",
-			Model:          "${ZAI_MODEL:-glm-4.7}",
-			SmallFastModel: "${ZAI_SMALL_MODEL:-glm-4.5-air}",
-		},
-		"llamabarn": {
-			BaseURL:        "${LLAMABARN_BASE_URL:-http://localhost:2276/v1}",
-			AuthToken:      "${LLAMABARN_API_KEY}",
-			Model:          "${LLAMABARN_MODEL:-local}",
-			SmallFastModel: "${LLAMABARN_SMALL_MODEL:-local}",
-		},
 	}
 }
 
@@ -299,52 +264,21 @@ func applyDefaults(cfg *Config) {
 	if cfg.CLI.DefaultProvider == "" {
 		cfg.CLI.DefaultProvider = defaults.CLI.DefaultProvider
 	}
-	if cfg.CLI.Version == "" {
-		cfg.CLI.Version = defaults.CLI.Version
-	}
 
 	// Optimization defaults: if entire section is zero-valued, apply all defaults
 	if cfg.Optimization == (OptimizationConfig{}) {
 		cfg.Optimization = defaults.Optimization
-	} else {
-		// Fill in zero-valued int fields from defaults
-		if cfg.Optimization.APITimeoutMs == 0 {
-			cfg.Optimization.APITimeoutMs = defaults.Optimization.APITimeoutMs
-		}
-		if cfg.Optimization.MaxOutputTokens == 0 {
-			cfg.Optimization.MaxOutputTokens = defaults.Optimization.MaxOutputTokens
-		}
-		if cfg.Optimization.NodeMaxOldSpaceSize == 0 {
-			cfg.Optimization.NodeMaxOldSpaceSize = defaults.Optimization.NodeMaxOldSpaceSize
-		}
+		return
 	}
-
-	// Provider defaults: add missing providers and fill missing fields
-	if cfg.Providers == nil {
-		cfg.Providers = make(map[string]Provider)
+	// Fill in zero-valued int fields from defaults
+	if cfg.Optimization.APITimeoutMs == 0 {
+		cfg.Optimization.APITimeoutMs = defaults.Optimization.APITimeoutMs
 	}
-	for name, defaultProvider := range defaults.Providers {
-		if existing, exists := cfg.Providers[name]; !exists {
-			cfg.Providers[name] = defaultProvider
-		} else {
-			// Merge: fill empty fields from defaults
-			if existing.BaseURL == "" {
-				existing.BaseURL = defaultProvider.BaseURL
-			}
-			if existing.AuthToken == "" {
-				existing.AuthToken = defaultProvider.AuthToken
-			}
-			if existing.OAuthToken == "" {
-				existing.OAuthToken = defaultProvider.OAuthToken
-			}
-			if existing.Model == "" {
-				existing.Model = defaultProvider.Model
-			}
-			if existing.SmallFastModel == "" {
-				existing.SmallFastModel = defaultProvider.SmallFastModel
-			}
-			cfg.Providers[name] = existing
-		}
+	if cfg.Optimization.MaxOutputTokens == 0 {
+		cfg.Optimization.MaxOutputTokens = defaults.Optimization.MaxOutputTokens
+	}
+	if cfg.Optimization.NodeMaxOldSpaceSize == 0 {
+		cfg.Optimization.NodeMaxOldSpaceSize = defaults.Optimization.NodeMaxOldSpaceSize
 	}
 }
 

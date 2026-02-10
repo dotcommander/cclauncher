@@ -2,46 +2,25 @@ package handlers
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/dotcommander/cclauncher/internal/process"
 	"github.com/spf13/cobra"
 )
 
-// RefCounter abstracts reference counting operations for testability
-type RefCounter interface {
-	IncrementRefCount() error
-	DecrementRefCount() (int, error)
-	GetRefCount() (int, error)
-	ResetRefCount() error
-}
-
-// Ensure concrete types implement interfaces
-var _ RefCounter = (*process.RefCountManager)(nil)
-
-// GetVersion returns the configured version string
+// GetVersion returns the build-time version string
 func GetVersion() string {
-	cfg, err := config.Load()
-	if err != nil {
-		return "1.0.0"
-	}
-	if cfg.CLI.Version == "" {
-		return "1.0.0"
-	}
-	return cfg.CLI.Version
+	return config.Version
 }
 
 func HandleCode(cmd *cobra.Command, args []string) error {
-	// Load config once (creates defaults if needed)
-	cfg, err := config.Init()
+	// Load config (no longer creates defaults)
+	cfg, err := config.Load()
 	if err != nil {
-		slog.Warn("Failed to load config, using defaults", "error", err)
-		cfg = config.DefaultConfig()
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Extract provider from config
@@ -50,14 +29,16 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Reference count management (increment only, since exec never returns)
-	_, _ = setupReferenceCounting()
+	// Validate that provider has required authentication
+	if providerConfig.AuthToken == "" && providerConfig.APIKey == "" && providerConfig.OAuthToken == "" {
+		return fmt.Errorf("provider '%s' requires authentication. Set %s_API_KEY environment variable or configure in config.yaml", providerName, strings.ToUpper(providerName))
+	}
 
 	// Setup environment variables for Claude Code
 	env := setupEnvironment(providerConfig, cfg.Optimization)
 
 	// Show which provider and model is being used
-	fmt.Fprintf(os.Stderr, "🚀 Using %s provider with model %s\n", providerName, providerConfig.Model)
+	fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider using model %s\n", providerName, providerConfig.Model)
 
 	// Execute Claude Code with configured environment
 	// This replaces the current process - nothing after this runs
@@ -75,41 +56,19 @@ func extractProvider(cmd *cobra.Command, cfg *config.Config) (string, config.Pro
 	registry := config.NewProviderRegistryFromConfig(cfg)
 	providerConfig, exists := registry.Get(provider)
 	if !exists {
-		return "", config.ProviderConfig{}, fmt.Errorf("unknown provider: %s", provider)
+		return "", config.ProviderConfig{}, fmt.Errorf("unknown provider: %s (check config.yaml at %s)", provider, config.GetConfigPath())
 	}
 
 	// Override model from router.default if available (format: "provider:model")
 	if cfg.Router.Default != "" {
 		parts := strings.SplitN(cfg.Router.Default, ":", 2)
-		if len(parts) == 2 && parts[0] == provider {
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" && parts[0] == provider {
 			providerConfig.Model = parts[1]
 			providerConfig.SmallFastModel = parts[1]
 		}
 	}
 
 	return provider, providerConfig, nil
-}
-
-// setupReferenceCounting manages process reference counting
-// Note: Cleanup function is ignored since syscall.Exec() never returns
-func setupReferenceCounting() (*process.RefCountManager, func()) {
-	refMgr := process.NewRefCountManager()
-
-	if err := refMgr.IncrementRefCount(); err != nil {
-		slog.Warn("Failed to increment reference count", "error", err)
-	}
-
-	cleanup := func() {
-		// This will never be called due to exec, but kept for interface consistency
-		count, err := refMgr.DecrementRefCount()
-		if err != nil {
-			slog.Warn("Failed to decrement reference count", "error", err)
-		} else {
-			slog.Debug("Session completed", "remaining_sessions", count)
-		}
-	}
-
-	return refMgr, cleanup
 }
 
 // setupEnvironment prepares environment variables for Claude Code
@@ -232,63 +191,4 @@ func executeClaudeCode(env []string) error {
 	// On success, this function never returns
 	// On failure, it returns an error
 	return syscall.Exec(claudePath, argv, env)
-}
-
-func HandleCleanup(cmd *cobra.Command, args []string) error {
-	refMgr := process.NewRefCountManager()
-
-	// Get current refcount
-	count, err := refMgr.GetRefCount()
-	if err != nil {
-		slog.Warn("Failed to get reference count", "error", err)
-		count = 0
-	}
-
-	if count == 0 {
-		fmt.Println("✅ No active sessions, nothing to cleanup")
-		return nil
-	}
-
-	fmt.Printf("⚠️  Found %d active session reference(s)\n", count)
-	fmt.Println("This could be from:")
-	fmt.Println("  - Currently running ccg sessions")
-	fmt.Println("  - Crashed sessions that didn't cleanup")
-	fmt.Println()
-
-	// Ask for confirmation
-	fmt.Print("Reset reference count to 0? (yes/no): ")
-	var response string
-	_, _ = fmt.Scanln(&response)
-
-	if strings.ToLower(response) != "yes" && strings.ToLower(response) != "y" {
-		fmt.Println("Cleanup cancelled")
-		return nil
-	}
-
-	// Reset refcount
-	if err := refMgr.ResetRefCount(); err != nil {
-		return fmt.Errorf("failed to reset reference count: %w", err)
-	}
-
-	fmt.Println("✅ Reference count reset to 0")
-	return nil
-}
-
-func HandleRefs(cmd *cobra.Command, args []string) error {
-	refMgr := process.NewRefCountManager()
-
-	count, err := refMgr.GetRefCount()
-	if err != nil {
-		return fmt.Errorf("failed to get reference count: %w", err)
-	}
-
-	if count == 0 {
-		fmt.Println("📊 Reference count: 0 (no active sessions)")
-	} else {
-		fmt.Printf("📊 Reference count: %d (active sessions)\n", count)
-	}
-
-	fmt.Printf("📁 Reference file: %s\n", process.GetRefCountFile())
-
-	return nil
 }

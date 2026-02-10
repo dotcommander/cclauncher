@@ -1,7 +1,12 @@
+# Default recipe - show menu
+default:
+    @just --list
+
 # Variables
 BINARY_NAME := "ccl"
 GO := "go"
-GOFLAGS := "-ldflags='-s -w'"
+VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
+GOFLAGS := "-ldflags='-s -w -X github.com/dotcommander/cclauncher/internal/config.Version=" + VERSION + "'"
 GOPATH := env_var_or_default("GOPATH", env_var("HOME") + "/go")
 
 # Build the binary

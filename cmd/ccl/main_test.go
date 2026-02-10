@@ -22,7 +22,7 @@ func TestCLICommands(t *testing.T) {
 		if err != nil {
 			t.Errorf("version command failed: %v", err)
 		}
-		if !strings.Contains(string(output), "ccl version 1.0.0") {
+		if !strings.Contains(string(output), "ccl version dev") {
 			t.Errorf("unexpected version output: %s", output)
 		}
 	})
