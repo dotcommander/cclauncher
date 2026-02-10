@@ -33,6 +33,8 @@ ccl -p claude          # Anthropic Claude (OAuth)
 ccl -p claude2         # Anthropic Claude (second account)
 ccl -p zai             # Z.ai (GLM-4.7)
 ccl -p llamabarn       # LlamaBarn (local)
+ccl version            # Show version information
+ccl update             # Update to latest version
 ```
 
 All arguments after the provider flag are passed through to `claude`.
@@ -54,7 +56,7 @@ All arguments after the provider flag are passed through to `claude`.
 
 ## Configuration
 
-API keys via environment variables:
+API keys can be set via environment variables:
 
 ```bash
 export SYNTHETIC_API_KEY="..."      # Synthetic.new providers
@@ -63,7 +65,21 @@ export LLAMABARN_API_KEY="..."      # LlamaBarn
 export CLAUDE2_OAUTH_TOKEN="..."    # Claude second account
 ```
 
+Or use per-provider overrides with the `CCL_<PROVIDER>_API_KEY` format:
+
+```bash
+export CCL_SYNTHETIC_API_KEY="..."  # Override for -p synthetic, deepseek, etc.
+export CCL_ZAI_API_KEY="..."        # Override for -p zai
+```
+
+Priority order:
+1. `CCL_<PROVIDER>_API_KEY` environment variable (highest)
+2. Config file `authToken` field (with `${VAR}` interpolation)
+3. Default value from built-in provider template
+
 Optional config file at `~/.config/cclauncher/config.yaml` with `${VAR:-default}` interpolation. See `examples/config.yaml.example`.
+
+CCL validates authentication before launching and will error if the selected provider requires but lacks credentials.
 
 ## Architecture
 
