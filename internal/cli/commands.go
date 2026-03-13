@@ -41,8 +41,18 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newUpdateCmd())
+	rootCmd.AddCommand(newProvidersCmd())
 
 	return rootCmd
+}
+
+func newProvidersCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "providers",
+		Short: "List configured providers",
+		Long:  "List all configured LLM providers with their model and authentication status.",
+		RunE:  handlers.HandleProviders,
+	}
 }
 
 func newVersionCmd() *cobra.Command {
