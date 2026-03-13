@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -225,5 +226,20 @@ func DefaultConfig() *Config {
 		CLI:          CLIConfig{DefaultProvider: "synthetic"},
 		Optimization: defaultOptimization(),
 	}
+}
+
+type contextKey string
+
+const cfgContextKey contextKey = "config"
+
+// StoreInContext returns a new context with the config stored.
+func StoreInContext(ctx context.Context, cfg *Config) context.Context {
+	return context.WithValue(ctx, cfgContextKey, cfg)
+}
+
+// FromContext extracts the config from a context. Returns nil if not present.
+func FromContext(ctx context.Context) *Config {
+	cfg, _ := ctx.Value(cfgContextKey).(*Config)
+	return cfg
 }
 

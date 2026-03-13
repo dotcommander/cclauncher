@@ -29,7 +29,7 @@ func HandleUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get latest version from GitHub
-	latestVersion, err := getLatestVersion()
+	latestVersion, err := getLatestVersion(&http.Client{Timeout: 10 * time.Second})
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -68,10 +68,7 @@ func HandleUpdate(cmd *cobra.Command, args []string) error {
 }
 
 // getLatestVersion fetches the latest release version from GitHub API
-func getLatestVersion() (string, error) {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+func getLatestVersion(client *http.Client) (string, error) {
 
 	req, err := http.NewRequest("GET", "https://api.github.com/repos/dotcommander/cclauncher/releases/latest", nil)
 	if err != nil {

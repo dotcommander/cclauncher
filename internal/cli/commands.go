@@ -25,9 +25,11 @@ func newRootCmd() *cobra.Command {
 				return nil
 			}
 
-			if _, err := config.EnsureExists(); err != nil {
+			cfg, err := config.Init()
+			if err != nil {
 				return fmt.Errorf("failed to initialize config: %w", err)
 			}
+			cmd.SetContext(config.StoreInContext(cmd.Context(), cfg))
 			return nil
 		},
 		Example: `  ccl                  # Launch with default provider

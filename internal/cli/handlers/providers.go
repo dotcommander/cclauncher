@@ -9,9 +9,9 @@ import (
 )
 
 func HandleProviders(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+	cfg := config.FromContext(cmd.Context())
+	if cfg == nil {
+		return fmt.Errorf("config not loaded (internal error)")
 	}
 
 	names := make([]string, 0, len(cfg.Providers))
