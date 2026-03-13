@@ -4,8 +4,6 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/dotcommander/cclauncher/internal/utils"
 	"gopkg.in/yaml.v3"
@@ -46,16 +44,20 @@ type Provider struct {
 	Transformer    TransformerConfig `json:"transformer,omitempty" yaml:"transformer,omitempty"`
 }
 
-// ToProviderConfig converts a config Provider to a runtime ProviderConfig
-func (p Provider) ToProviderConfig() ProviderConfig {
-	return ProviderConfig{
-		BaseURL:        p.BaseURL,
-		AuthToken:      p.AuthToken,
-		APIKey:         p.APIKey,
-		OAuthToken:     p.OAuthToken,
-		Model:          p.Model,
-		SmallFastModel: p.SmallFastModel,
-	}
+// HasAuth reports whether the provider has any authentication credential configured.
+func (p Provider) HasAuth() bool {
+	return p.AuthToken != "" || p.APIKey != "" || p.OAuthToken != ""
+}
+
+// interpolated returns a copy of the Provider with all ${VAR} templates resolved.
+func (p Provider) interpolated() Provider {
+	p.BaseURL, _ = utils.InterpolateEnvVars(p.BaseURL, false)
+	p.AuthToken, _ = utils.InterpolateEnvVars(p.AuthToken, false)
+	p.OAuthToken, _ = utils.InterpolateEnvVars(p.OAuthToken, false)
+	p.APIKey, _ = utils.InterpolateEnvVars(p.APIKey, false)
+	p.Model, _ = utils.InterpolateEnvVars(p.Model, false)
+	p.SmallFastModel, _ = utils.InterpolateEnvVars(p.SmallFastModel, false)
+	return p
 }
 
 // OptimizationConfig defines Claude Code optimization and performance settings
@@ -105,20 +107,6 @@ type CLIConfig struct {
 	DefaultProvider string `json:"defaultProvider,omitempty" yaml:"defaultProvider,omitempty"`
 }
 
-// getDefaultHomeDir returns the default config home directory
-func getDefaultHomeDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = os.Getenv("HOME")
-	}
-	return filepath.Join(home, ".config", "cclauncher")
-}
-
-// getDefaultConfigFile returns the default config file path
-func getDefaultConfigFile() string {
-	return filepath.Join(getDefaultHomeDir(), "config.yaml")
-}
-
 // Loader handles configuration loading with injectable paths
 type Loader struct {
 	homeDir    string
@@ -136,11 +124,6 @@ func NewLoaderWithPaths(homeDir, configFile string) *Loader {
 		homeDir:    homeDir,
 		configFile: configFile,
 	}
-}
-
-// GetConfigPath returns the path to the config file
-func GetConfigPath() string {
-	return getDefaultConfigFile()
 }
 
 // ConfigPath returns the path to the config file for this loader
@@ -244,64 +227,3 @@ func DefaultConfig() *Config {
 	}
 }
 
-func defaultOptimization() OptimizationConfig {
-	return OptimizationConfig{
-		DisableNonessentialTraffic: true,
-		DisableAutoupdater:         true,
-		DisableTelemetry:           true,
-		DisableErrorReporting:      true,
-		DisableCostWarnings:        true,
-		APITimeoutMs:               3000000,
-		MaxOutputTokens:            200000,
-		NodeMaxOldSpaceSize:        8192,
-	}
-}
-
-func applyDefaults(cfg *Config) {
-	defaults := DefaultConfig()
-
-	// CLI defaults
-	if cfg.CLI.DefaultProvider == "" {
-		cfg.CLI.DefaultProvider = defaults.CLI.DefaultProvider
-	}
-
-	// Optimization defaults: if entire section is zero-valued, apply all defaults
-	if cfg.Optimization == (OptimizationConfig{}) {
-		cfg.Optimization = defaults.Optimization
-		return
-	}
-	// Fill in zero-valued int fields from defaults
-	if cfg.Optimization.APITimeoutMs == 0 {
-		cfg.Optimization.APITimeoutMs = defaults.Optimization.APITimeoutMs
-	}
-	if cfg.Optimization.MaxOutputTokens == 0 {
-		cfg.Optimization.MaxOutputTokens = defaults.Optimization.MaxOutputTokens
-	}
-	if cfg.Optimization.NodeMaxOldSpaceSize == 0 {
-		cfg.Optimization.NodeMaxOldSpaceSize = defaults.Optimization.NodeMaxOldSpaceSize
-	}
-}
-
-// interpolateProviderFields resolves any ${VAR} templates in provider fields
-// that were filled by applyDefaults after the initial YAML interpolation pass.
-func interpolateProviderFields(cfg *Config) {
-	for name, p := range cfg.Providers {
-		p.BaseURL, _ = utils.InterpolateEnvVars(p.BaseURL, false)
-		p.AuthToken, _ = utils.InterpolateEnvVars(p.AuthToken, false)
-		p.OAuthToken, _ = utils.InterpolateEnvVars(p.OAuthToken, false)
-		p.APIKey, _ = utils.InterpolateEnvVars(p.APIKey, false)
-		p.Model, _ = utils.InterpolateEnvVars(p.Model, false)
-		p.SmallFastModel, _ = utils.InterpolateEnvVars(p.SmallFastModel, false)
-		cfg.Providers[name] = p
-	}
-}
-
-func overrideFromEnv(cfg *Config) {
-	for name, provider := range cfg.Providers {
-		envKey := "CCL_" + strings.ToUpper(name) + "_API_KEY"
-		if apiKey := os.Getenv(envKey); apiKey != "" {
-			provider.APIKey = apiKey
-			cfg.Providers[name] = provider
-		}
-	}
-}
