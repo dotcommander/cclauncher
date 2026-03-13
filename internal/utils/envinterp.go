@@ -39,9 +39,8 @@ func InterpolateEnvVars(input string, strict bool) (string, error) {
 		if strict {
 			return "", &MissingEnvVarsError{Variables: missingVars}
 		}
-		slog.Warn("Environment variables not found during interpolation",
-			"missing_vars", missingVars,
-			"input", truncate(input, 100))
+		slog.Debug("Environment variables not found during interpolation",
+			"missing_vars", missingVars)
 	}
 
 	return result, nil
@@ -88,18 +87,10 @@ func parseVarExpr(match string) (varName string, defaultVal string) {
 	expr = strings.TrimPrefix(expr, "{")
 	expr = strings.TrimSuffix(expr, "}")
 
-	if idx := strings.Index(expr, ":-"); idx != -1 {
-		return expr[:idx], expr[idx+2:]
+	if name, def, ok := strings.Cut(expr, ":-"); ok {
+		return name, def
 	}
 	return expr, ""
-}
-
-// truncate limits string length for logging
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }
 
 // MissingEnvVarsError is returned when required environment variables are missing
