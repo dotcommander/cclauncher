@@ -30,7 +30,7 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate that provider has required authentication
-	if providerConfig.AuthToken == "" && providerConfig.APIKey == "" && providerConfig.OAuthToken == "" {
+	if !providerConfig.HasAuth() {
 		return fmt.Errorf("provider '%s' requires authentication. Set %s_API_KEY environment variable or configure in config.yaml", providerName, strings.ToUpper(providerName))
 	}
 
@@ -46,17 +46,16 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 }
 
 // extractProvider extracts and validates provider from command and config
-func extractProvider(cmd *cobra.Command, cfg *config.Config) (string, config.ProviderConfig, error) {
+func extractProvider(cmd *cobra.Command, cfg *config.Config) (string, config.Provider, error) {
 	provider, _ := cmd.Flags().GetString("provider")
 
 	if provider == "" {
 		provider = cfg.CLI.DefaultProvider
 	}
 
-	registry := config.NewProviderRegistryFromConfig(cfg)
-	providerConfig, exists := registry.Get(provider)
+	providerConfig, exists := config.GetProvider(cfg, provider)
 	if !exists {
-		return "", config.ProviderConfig{}, fmt.Errorf("unknown provider: %s (check config.yaml at %s)", provider, config.GetConfigPath())
+		return "", config.Provider{}, fmt.Errorf("unknown provider: %s (check config.yaml at %s)", provider, config.GetConfigPath())
 	}
 
 	// Override model from router.default if available (format: "provider:model")
@@ -72,7 +71,7 @@ func extractProvider(cmd *cobra.Command, cfg *config.Config) (string, config.Pro
 }
 
 // setupEnvironment prepares environment variables for Claude Code
-func setupEnvironment(providerConfig config.ProviderConfig, opt config.OptimizationConfig) []string {
+func setupEnvironment(providerConfig config.Provider, opt config.OptimizationConfig) []string {
 	// Clear existing Anthropic env vars
 	env := clearAnthropicEnvVars()
 
@@ -112,7 +111,7 @@ func setupEnvironment(providerConfig config.ProviderConfig, opt config.Optimizat
 // clearAnthropicEnvVars removes existing Claude Code environment variables
 // to prevent leaking values from the parent shell
 func clearAnthropicEnvVars() []string {
-	env := []string{}
+	env := make([]string, 0, len(os.Environ()))
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "ANTHROPIC_") ||
 			strings.HasPrefix(e, "CLAUDE_CODE_") {
@@ -148,28 +147,41 @@ func setEnvVar(env []string, key, value string, overwrite bool) []string {
 	return append(env, fmt.Sprintf("%s=%s", key, value))
 }
 
+type optEnvRule struct {
+	envKey   string
+	getValue func(config.OptimizationConfig) string
+}
+
+func boolEnv(b bool) string {
+	if b {
+		return "1"
+	}
+	return ""
+}
+
+func intEnv(n int) string {
+	if n > 0 {
+		return fmt.Sprintf("%d", n)
+	}
+	return ""
+}
+
+var optEnvRules = []optEnvRule{
+	{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", func(o config.OptimizationConfig) string { return boolEnv(o.DisableNonessentialTraffic) }},
+	{"DISABLE_AUTOUPDATER", func(o config.OptimizationConfig) string { return boolEnv(o.DisableAutoupdater) }},
+	{"DISABLE_TELEMETRY", func(o config.OptimizationConfig) string { return boolEnv(o.DisableTelemetry) }},
+	{"DISABLE_ERROR_REPORTING", func(o config.OptimizationConfig) string { return boolEnv(o.DisableErrorReporting) }},
+	{"DISABLE_COST_WARNINGS", func(o config.OptimizationConfig) string { return boolEnv(o.DisableCostWarnings) }},
+	{"API_TIMEOUT_MS", func(o config.OptimizationConfig) string { return intEnv(o.APITimeoutMs) }},
+	{"CLAUDE_CODE_MAX_OUTPUT_TOKENS", func(o config.OptimizationConfig) string { return intEnv(o.MaxOutputTokens) }},
+}
+
 // applyOptimizationDefaults sets optimization env vars from config
 func applyOptimizationDefaults(env []string, opt config.OptimizationConfig) []string {
-	if opt.DisableNonessentialTraffic {
-		env = setEnvVar(env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", false)
-	}
-	if opt.DisableAutoupdater {
-		env = setEnvVar(env, "DISABLE_AUTOUPDATER", "1", false)
-	}
-	if opt.DisableTelemetry {
-		env = setEnvVar(env, "DISABLE_TELEMETRY", "1", false)
-	}
-	if opt.DisableErrorReporting {
-		env = setEnvVar(env, "DISABLE_ERROR_REPORTING", "1", false)
-	}
-	if opt.DisableCostWarnings {
-		env = setEnvVar(env, "DISABLE_COST_WARNINGS", "1", false)
-	}
-	if opt.APITimeoutMs > 0 {
-		env = setEnvVar(env, "API_TIMEOUT_MS", fmt.Sprintf("%d", opt.APITimeoutMs), false)
-	}
-	if opt.MaxOutputTokens > 0 {
-		env = setEnvVar(env, "CLAUDE_CODE_MAX_OUTPUT_TOKENS", fmt.Sprintf("%d", opt.MaxOutputTokens), false)
+	for _, rule := range optEnvRules {
+		if v := rule.getValue(opt); v != "" {
+			env = setEnvVar(env, rule.envKey, v, false)
+		}
 	}
 	return env
 }
