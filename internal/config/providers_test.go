@@ -12,44 +12,40 @@ func getTestConfigPath() string {
 	return filepath.Join("testdata", "config.yaml")
 }
 
-func TestNewProviderRegistryFromConfig(t *testing.T) {
+func TestGetProvider_AllProvidersExist(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err, "Failed to load test config")
 
-	registry := NewProviderRegistryFromConfig(cfg)
-
 	// Should load all providers from fixture
 	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax", "llamabarn"}
 	for _, name := range expectedProviders {
-		_, exists := registry.Get(name)
+		_, exists := GetProvider(cfg, name)
 		assert.True(t, exists, "Provider %s should exist", name)
 	}
 }
 
-func TestProviderRegistry_ProvidersExist(t *testing.T) {
+func TestGetProvider_ProvidersExist(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	registry := NewProviderRegistryFromConfig(cfg)
 	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax"}
 
 	for _, providerName := range expectedProviders {
 		t.Run(providerName, func(t *testing.T) {
-			provider, exists := registry.Get(providerName)
+			provider, exists := GetProvider(cfg, providerName)
 			assert.True(t, exists, "Provider %s should exist", providerName)
 			assert.NotEmpty(t, provider.BaseURL, "Provider config should have BaseURL")
 		})
 	}
 }
 
-func TestProviderRegistry_BaseURLs(t *testing.T) {
+func TestGetProvider_BaseURLs(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	registry := NewProviderRegistryFromConfig(cfg)
 	tests := []struct {
 		name         string
 		providerName string
@@ -65,44 +61,40 @@ func TestProviderRegistry_BaseURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, exists := registry.Get(tt.providerName)
+			provider, exists := GetProvider(cfg, tt.providerName)
 			assert.True(t, exists)
 			assert.Equal(t, tt.expectedURL, provider.BaseURL)
 		})
 	}
 }
 
-func TestProviderRegistry_Models(t *testing.T) {
+func TestGetProvider_Models(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	registry := NewProviderRegistryFromConfig(cfg)
-
-	// Test providers with specific models
-	deepseek, _ := registry.Get("deepseek")
+	deepseek, _ := GetProvider(cfg, "deepseek")
 	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.Model)
 	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.SmallFastModel)
 
-	synthetic, _ := registry.Get("synthetic")
+	synthetic, _ := GetProvider(cfg, "synthetic")
 	assert.Equal(t, "hf:moonshotai/Kimi-K2.5", synthetic.Model)
 	assert.Equal(t, "hf:moonshotai/Kimi-K2.5", synthetic.SmallFastModel)
 
-	qwen, _ := registry.Get("qwen")
+	qwen, _ := GetProvider(cfg, "qwen")
 	assert.Equal(t, "hf:Qwen/Qwen3-VL-235B-A22B-Instruct", qwen.Model)
 	assert.Equal(t, "hf:Qwen/Qwen3-VL-235B-A22B-Instruct", qwen.SmallFastModel)
 
-	qwen3Coder, _ := registry.Get("qwen3-coder")
+	qwen3Coder, _ := GetProvider(cfg, "qwen3-coder")
 	assert.Equal(t, "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct", qwen3Coder.Model)
 	assert.Equal(t, "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct", qwen3Coder.SmallFastModel)
 }
 
-func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
+func TestGetProvider_AuthenticationMethods(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	registry := NewProviderRegistryFromConfig(cfg)
 	tests := []struct {
 		name         string
 		providerName string
@@ -121,7 +113,7 @@ func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, _ := registry.Get(tt.providerName)
+			provider, _ := GetProvider(cfg, tt.providerName)
 
 			if tt.hasAuthToken {
 				// Auth tokens resolve from env vars at load time;
@@ -137,7 +129,7 @@ func TestProviderRegistry_AuthenticationMethods(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_EnvironmentVariableResolution(t *testing.T) {
+func TestGetProvider_EnvironmentVariableResolution(t *testing.T) {
 	// Test that CLAUDE2_OAUTH_TOKEN environment variable is resolved for the claude2 provider
 	testValue := "test-oauth-token"
 	t.Setenv("CLAUDE2_OAUTH_TOKEN", testValue)
@@ -146,8 +138,7 @@ func TestProviderRegistry_EnvironmentVariableResolution(t *testing.T) {
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	registry := NewProviderRegistryFromConfig(cfg)
-	claude2, exists := registry.Get("claude2")
+	claude2, exists := GetProvider(cfg, "claude2")
 	assert.True(t, exists)
 	assert.Equal(t, testValue, claude2.OAuthToken)
 }
