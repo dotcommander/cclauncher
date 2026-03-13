@@ -17,8 +17,8 @@ providers:
   qwen:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:Qwen/Qwen3-VL-235B-A22B-Instruct"
-    smallFastModel: "hf:Qwen/Qwen3-VL-235B-A22B-Instruct"
+    model: "hf:Qwen/Qwen3-235B-A22B-Thinking-2507"
+    smallFastModel: "hf:Qwen/Qwen3-235B-A22B-Thinking-2507"
   qwen3-coder:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
@@ -37,8 +37,8 @@ providers:
   minimax:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:MiniMaxAI/MiniMax-M2"
-    smallFastModel: "hf:MiniMaxAI/MiniMax-M2"
+    model: "hf:MiniMaxAI/MiniMax-M2.1"
+    smallFastModel: "hf:MiniMaxAI/MiniMax-M2.1"
   claude:
     baseUrl: "https://api.anthropic.com"
   claude2:
