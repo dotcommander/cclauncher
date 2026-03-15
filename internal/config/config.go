@@ -79,6 +79,11 @@ type TransformerConfig struct {
 	Rules []TransformRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
 
+// HasRules reports whether the transformer has any rules configured.
+func (t TransformerConfig) HasRules() bool {
+	return len(t.Use) > 0 || len(t.Rules) > 0
+}
+
 // TransformRule defines a conditional transformation rule
 type TransformRule struct {
 	ModelPattern   string `json:"modelPattern,omitempty" yaml:"modelPattern,omitempty"`

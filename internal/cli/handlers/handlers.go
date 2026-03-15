@@ -32,6 +32,12 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("provider '%s' requires authentication. Set %s_API_KEY environment variable or configure in config.yaml", providerName, strings.ToUpper(providerName))
 	}
 
+	// Proxy mode: local proxy handles request transformation
+	if providerConfig.Transformer.HasRules() {
+		fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider (proxy mode) using model %s\n", providerName, providerConfig.Model)
+		return launcher.LaunchWithProxy(providerConfig, cfg.Optimization)
+	}
+
 	// Setup environment variables for Claude Code
 	env := launcher.SetupEnvironment(providerConfig, cfg.Optimization)
 

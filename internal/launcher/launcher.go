@@ -1,13 +1,17 @@
 package launcher
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/dotcommander/cclauncher/internal/config"
+	"github.com/dotcommander/cclauncher/internal/proxy"
 )
 
 type optEnvRule struct {
@@ -45,10 +49,7 @@ func SetupEnvironment(providerConfig config.Provider, opt config.OptimizationCon
 	env := clearAnthropicEnvVars()
 
 	// Resolve auth: prefer AuthToken, fall back to APIKey
-	authToken := providerConfig.AuthToken
-	if authToken == "" {
-		authToken = providerConfig.APIKey
-	}
+	authToken := resolveAuthToken(providerConfig)
 
 	// Generate env vars from provider config
 	providerEnvVars := map[string]string{
@@ -130,10 +131,9 @@ func applyOptimizationDefaults(env []string, opt config.OptimizationConfig) []st
 // Uses syscall.Exec to replace the current process with Claude Code.
 // This function never returns on success.
 func ExecuteClaudeCode(env []string) error {
-	// Find the claude executable in PATH
-	claudePath, err := exec.LookPath("claude")
+	claudePath, err := findClaude()
 	if err != nil {
-		return fmt.Errorf("claude not found in PATH: %w", err)
+		return err
 	}
 
 	// Prepare argv for exec (argv[0] should be the command name)
@@ -143,4 +143,79 @@ func ExecuteClaudeCode(env []string) error {
 	// On success, this function never returns
 	// On failure, it returns an error
 	return syscall.Exec(claudePath, argv, env)
+}
+
+// LaunchWithProxy starts a local proxy for request transformation, then
+// launches Claude Code pointing at the proxy. The Go process stays alive
+// to serve the proxy until Claude exits.
+func LaunchWithProxy(providerConfig config.Provider, opt config.OptimizationConfig) error {
+	authToken := resolveAuthToken(providerConfig)
+
+	p := proxy.NewProxy(
+		providerConfig.BaseURL,
+		authToken,
+		providerConfig.OAuthToken,
+		providerConfig.Transformer.Rules,
+	)
+
+	port, err := p.Start()
+	if err != nil {
+		return fmt.Errorf("start proxy: %w", err)
+	}
+	slog.Info("proxy listening", "port", port)
+
+	// Point Claude at the local proxy; proxy handles real auth
+	providerConfig.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	providerConfig.AuthToken = ""
+	providerConfig.APIKey = ""
+	providerConfig.OAuthToken = ""
+
+	env := SetupEnvironment(providerConfig, opt)
+
+	claudeErr := runClaude(env)
+
+	// Shut down proxy with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := p.Shutdown(ctx); err != nil {
+		slog.Error("proxy shutdown", "error", err)
+	}
+
+	return claudeErr
+}
+
+// findClaude locates the claude binary in PATH.
+func findClaude() (string, error) {
+	p, err := exec.LookPath("claude")
+	if err != nil {
+		return "", fmt.Errorf("claude not found in PATH: %w", err)
+	}
+	return p, nil
+}
+
+// resolveAuthToken returns the preferred auth credential for a provider.
+func resolveAuthToken(p config.Provider) string {
+	if p.AuthToken != "" {
+		return p.AuthToken
+	}
+	return p.APIKey
+}
+
+// runClaude spawns claude as a child process, piping stdio, and waits for exit.
+func runClaude(env []string) error {
+	claudePath, err := findClaude()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(claudePath)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("claude exited: %w", err)
+	}
+	return nil
 }
