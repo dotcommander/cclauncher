@@ -130,14 +130,14 @@ func applyOptimizationDefaults(env []string, opt config.OptimizationConfig) []st
 // ExecuteClaudeCode runs the Claude Code CLI with configured environment.
 // Uses syscall.Exec to replace the current process with Claude Code.
 // This function never returns on success.
-func ExecuteClaudeCode(env []string) error {
+func ExecuteClaudeCode(env []string, args []string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
 
 	// Prepare argv for exec (argv[0] should be the command name)
-	argv := []string{"claude"}
+	argv := append([]string{"claude"}, args...)
 
 	// syscall.Exec replaces the current process with Claude Code
 	// On success, this function never returns
@@ -148,7 +148,7 @@ func ExecuteClaudeCode(env []string) error {
 // LaunchWithProxy starts a local proxy for request transformation, then
 // launches Claude Code pointing at the proxy. The Go process stays alive
 // to serve the proxy until Claude exits.
-func LaunchWithProxy(providerConfig config.Provider, opt config.OptimizationConfig) error {
+func LaunchWithProxy(providerConfig config.Provider, opt config.OptimizationConfig, args []string) error {
 	authToken := resolveAuthToken(providerConfig)
 
 	p := proxy.NewProxy(
@@ -172,7 +172,7 @@ func LaunchWithProxy(providerConfig config.Provider, opt config.OptimizationConf
 
 	env := SetupEnvironment(providerConfig, opt)
 
-	claudeErr := runClaude(env)
+	claudeErr := runClaude(env, args)
 
 	// Shut down proxy with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -202,13 +202,13 @@ func resolveAuthToken(p config.Provider) string {
 }
 
 // runClaude spawns claude as a child process, piping stdio, and waits for exit.
-func runClaude(env []string) error {
+func runClaude(env []string, args []string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.Command(claudePath)
+	cmd := exec.Command(claudePath, args...)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

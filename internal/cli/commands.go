@@ -44,6 +44,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 	rootCmd.AddCommand(newProvidersCmd())
+	rootCmd.AddCommand(newUseCmd())
 
 	return rootCmd
 }
@@ -83,4 +84,15 @@ Requires Go to be installed on your system.`,
 	cmd.Flags().Bool("check", false, "Check for updates without installing")
 
 	return cmd
+}
+
+func newUseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "use <provider>",
+		Short:   "Set the default provider",
+		Long:    "Set the default LLM provider. This persists to config.yaml.",
+		Example: "  ccl use deepseek\n  ccl use synthetic",
+		Args:    cobra.ExactArgs(1),
+		RunE:    handlers.HandleUse,
+	}
 }

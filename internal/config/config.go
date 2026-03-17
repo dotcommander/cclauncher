@@ -248,3 +248,66 @@ func FromContext(ctx context.Context) *Config {
 	return cfg
 }
 
+// SetDefaultProvider updates only the cli.defaultProvider field in the config
+// file on disk. It uses yaml.Node to preserve comments and env-var templates.
+func SetDefaultProvider(name string) error {
+	path := GetConfigPath()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("parse config: %w", err)
+	}
+
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
+		return fmt.Errorf("unexpected YAML structure in config")
+	}
+
+	root := doc.Content[0]
+	cliNode := findMapValue(root, "cli")
+	if cliNode == nil {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "cli"},
+			&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{
+				{Kind: yaml.ScalarNode, Value: "defaultProvider"},
+				{Kind: yaml.ScalarNode, Value: name},
+			}},
+		)
+	} else {
+		dpNode := findMapValue(cliNode, "defaultProvider")
+		if dpNode == nil {
+			cliNode.Content = append(cliNode.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "defaultProvider"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: name},
+			)
+		} else {
+			dpNode.Value = name
+		}
+	}
+
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(path, out, 0600); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	return nil
+}
+
+// findMapValue returns the value node for a given key in a YAML mapping node.
+func findMapValue(mapping *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+

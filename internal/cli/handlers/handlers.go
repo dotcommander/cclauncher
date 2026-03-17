@@ -35,7 +35,7 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 	// Proxy mode: local proxy handles request transformation
 	if providerConfig.Transformer.HasRules() {
 		fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider (proxy mode) using model %s\n", providerName, providerConfig.Model)
-		return launcher.LaunchWithProxy(providerConfig, cfg.Optimization)
+		return launcher.LaunchWithProxy(providerConfig, cfg.Optimization, args)
 	}
 
 	// Setup environment variables for Claude Code
@@ -46,7 +46,7 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 
 	// Execute Claude Code with configured environment
 	// This replaces the current process - nothing after this runs
-	return launcher.ExecuteClaudeCode(env)
+	return launcher.ExecuteClaudeCode(env, args)
 }
 
 // extractProvider extracts and validates provider from command and config
