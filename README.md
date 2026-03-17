@@ -33,11 +33,17 @@ ccl -p claude          # Anthropic Claude (OAuth)
 ccl -p claude2         # Anthropic Claude (second account)
 ccl -p zai             # Z.ai (GLM-4.7)
 ccl -p llamabarn       # LlamaBarn (local)
+ccl use deepseek       # Set default provider (persists)
+ccl providers          # List all providers
 ccl version            # Show version information
 ccl update             # Update to latest version
 ```
 
-All arguments after the provider flag are passed through to `claude`.
+All arguments after the provider flag are passed through to `claude`:
+
+```bash
+ccl -p deepseek "fix the null pointer in main.go"
+```
 
 ## Providers
 
