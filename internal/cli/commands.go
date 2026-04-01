@@ -16,9 +16,10 @@ func Execute() error {
 // newRootCmd builds the root command tree with all subcommands and flags
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "ccl",
-		Short: "CCL - Claude Code Launcher",
-		Long: "Launch Claude Code with different LLM providers.",
+		Use:                "ccl",
+		Short:              "Launch Claude Code with different LLM providers",
+		Long:               "Launch Claude Code with different LLM providers.\n\nAll flags except --provider are passed through to Claude Code.\nUse --provider to select an LLM provider (or set default via 'ccl use').",
+		DisableFlagParsing: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Skip config check for version and update commands
 			if cmd.Name() == "version" || cmd.Name() == "update" {
@@ -32,14 +33,14 @@ func newRootCmd() *cobra.Command {
 			cmd.SetContext(config.StoreInContext(cmd.Context(), cfg))
 			return nil
 		},
-		Example: `  ccl                  # Launch with default provider
-  ccl -p <provider>    # Launch with specific provider (see config.yaml)`,
+		Example: `  ccl                                  # Launch with default provider
+  ccl --provider deepseek               # Launch with specific provider
+  ccl --provider deepseek -p "hello"    # Provider + claude print mode
+  ccl -c -p "/dc:next"                  # Continue session + print mode
+  ccl --model sonnet "hello"            # Pass claude flags directly`,
 		Args: cobra.ArbitraryArgs,
 		RunE: handlers.HandleCode,
 	}
-
-	rootCmd.Flags().StringP("provider", "p", "",
-		"LLM provider (see providers in config.yaml)")
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newUpdateCmd())
