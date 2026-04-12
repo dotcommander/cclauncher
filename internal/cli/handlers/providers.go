@@ -2,40 +2,33 @@ package handlers
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 
-	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/spf13/cobra"
 )
 
-func HandleProviders(cmd *cobra.Command, args []string) error {
-	cfg := config.FromContext(cmd.Context())
-	if cfg == nil {
-		return fmt.Errorf("config not loaded (internal error)")
+// HandleProviders prints the configured providers as a table, marking the
+// default and showing whether each has auth credentials available.
+func HandleProviders(cmd *cobra.Command, _ []string) error {
+	cfg, err := configFromCmd(cmd)
+	if err != nil {
+		return err
 	}
 
-	names := make([]string, 0, len(cfg.Providers))
-	for name := range cfg.Providers {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	fmt.Printf("%-16s %-48s %-6s %s\n", "PROVIDER", "MODEL", "AUTH", "")
-	for _, name := range names {
+	const format = "%-16s %-48s %-6s %s\n"
+	fmt.Printf(format, "PROVIDER", "MODEL", "AUTH", "")
+	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
 		p := cfg.Providers[name]
-
 		auth := "no"
 		if p.HasAuth() {
 			auth = "yes"
 		}
-
 		marker := ""
 		if name == cfg.CLI.DefaultProvider {
 			marker = "(default)"
 		}
-
-		fmt.Printf("%-16s %-48s %-6s %s\n", name, p.Model, auth, marker)
+		fmt.Printf(format, name, p.Model, auth, marker)
 	}
-
 	return nil
 }

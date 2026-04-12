@@ -16,48 +16,46 @@ func GetVersion() string {
 	return config.Version
 }
 
+// HandleCode is the root command's runner: resolves a provider, sets up the
+// environment, and execs claude. Help handling is manual because the root
+// command uses DisableFlagParsing for transparent flag passthrough.
 func HandleCode(cmd *cobra.Command, args []string) error {
-	// Handle --help / -h manually since DisableFlagParsing bypasses cobra's help
-	if slices.Contains(args, "--help") || slices.Contains(args, "-h") {
-		cmd.Help()
-		return nil
+	if slices.ContainsFunc(args, isHelpFlag) {
+		return cmd.Help()
 	}
 
-	cfg := config.FromContext(cmd.Context())
-	if cfg == nil {
-		return fmt.Errorf("config not loaded (internal error)")
-	}
-
-	// Extract --provider from raw args; everything else passes through to claude
-	providerName, claudeArgs := extractProviderFromArgs(args)
-
-	// Resolve provider: explicit --provider flag, then config default
-	providerName, providerConfig, err := resolveProvider(providerName, cfg)
+	cfg, err := configFromCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Validate that provider has required authentication
-	if !providerConfig.HasAuth() {
-		return fmt.Errorf("provider '%s' requires authentication. Set %s_API_KEY environment variable or configure in config.yaml", providerName, strings.ToUpper(providerName))
+	providerName, claudeArgs := extractProviderFromArgs(args)
+	providerName, provider, err := resolveProvider(providerName, cfg)
+	if err != nil {
+		return err
 	}
 
-	// Proxy mode: local proxy handles request transformation
-	if providerConfig.Transformer.HasRules() {
-		fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider (proxy mode) using model %s\n", providerName, providerConfig.Model)
-		return launcher.LaunchWithProxy(providerConfig, cfg.Optimization, claudeArgs)
+	if !provider.HasAuth() {
+		return fmt.Errorf(
+			"provider %q requires authentication: set %s_API_KEY or configure authToken in %s",
+			providerName, strings.ToUpper(providerName), config.GetConfigPath(),
+		)
 	}
 
-	// Setup environment variables for Claude Code
-	env := launcher.SetupEnvironment(providerConfig, cfg.Optimization)
+	fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider using model %s\n",
+		providerName, provider.Model)
 
-	// Show which provider and model is being used
-	fmt.Fprintf(os.Stderr, "Launching Claude Code with %s provider using model %s\n", providerName, providerConfig.Model)
+	if provider.Transformer.HasRules() {
+		return launcher.LaunchWithProxy(provider, cfg.Optimization, claudeArgs)
+	}
 
-	// Execute Claude Code with configured environment
-	// This replaces the current process - nothing after this runs
-	return launcher.ExecuteClaudeCode(env, claudeArgs)
+	return launcher.ExecuteClaudeCode(
+		launcher.SetupEnvironment(provider, cfg.Optimization),
+		claudeArgs,
+	)
 }
+
+func isHelpFlag(s string) bool { return s == "-h" || s == "--help" }
 
 // extractProviderFromArgs finds and removes --provider from raw args.
 // Supports both "--provider value" and "--provider=value" forms.
@@ -75,8 +73,8 @@ func extractProviderFromArgs(args []string) (string, []string) {
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--provider=") {
-			provider = strings.TrimPrefix(arg, "--provider=")
+		if v, ok := strings.CutPrefix(arg, "--provider="); ok {
+			provider = v
 			continue
 		}
 
@@ -93,19 +91,17 @@ func resolveProvider(name string, cfg *config.Config) (string, config.Provider, 
 		name = cfg.CLI.DefaultProvider
 	}
 
-	providerConfig, exists := config.GetProvider(cfg, name)
-	if !exists {
-		return "", config.Provider{}, fmt.Errorf("unknown provider: %s (check config.yaml at %s)", name, config.GetConfigPath())
+	provider, ok := cfg.Providers[name]
+	if !ok {
+		return "", config.Provider{}, unknownProviderError(name)
 	}
 
-	// Override model from router.default if available (format: "provider:model")
-	if cfg.Router.Default != "" {
-		parts := strings.SplitN(cfg.Router.Default, ":", 2)
-		if len(parts) == 2 && parts[0] == name && parts[1] != "" {
-			providerConfig.Model = parts[1]
-			providerConfig.SmallFastModel = parts[1]
-		}
+	// Override model from router.default if it targets this provider.
+	// Format: "provider:model" (e.g. "zai:glm-5.1").
+	if prov, model, ok := strings.Cut(cfg.Router.Default, ":"); ok && prov == name && model != "" {
+		provider.Model = model
+		provider.SmallFastModel = model
 	}
 
-	return name, providerConfig, nil
+	return name, provider, nil
 }
