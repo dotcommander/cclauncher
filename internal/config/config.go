@@ -50,6 +50,15 @@ func (p Provider) HasAuth() bool {
 	return p.AuthToken != "" || p.APIKey != "" || p.OAuthToken != ""
 }
 
+// AuthCredential returns the preferred auth token for the Anthropic-compatible
+// endpoint: AuthToken takes precedence over APIKey. OAuth is handled separately.
+func (p Provider) AuthCredential() string {
+	if p.AuthToken != "" {
+		return p.AuthToken
+	}
+	return p.APIKey
+}
+
 // interpolated returns a copy of the Provider with all ${VAR} templates resolved.
 func (p Provider) interpolated() Provider {
 	p.BaseURL, _ = utils.InterpolateEnvVars(p.BaseURL, false)
@@ -93,18 +102,18 @@ type TransformRule struct {
 		Max int `json:"max,omitempty" yaml:"max,omitempty"`
 	} `json:"tokenRange,omitempty" yaml:"tokenRange,omitempty"`
 
-	SetModel       string                 `json:"setModel,omitempty" yaml:"setModel,omitempty"`
-	SetMaxTokens   int                    `json:"setMaxTokens,omitempty" yaml:"setMaxTokens,omitempty"`
-	SetTemperature float64                `json:"setTemperature,omitempty" yaml:"setTemperature,omitempty"`
-	AddHeaders     map[string]string      `json:"addHeaders,omitempty" yaml:"addHeaders,omitempty"`
-	ModifyBody     map[string]any `json:"modifyBody,omitempty" yaml:"modifyBody,omitempty"`
+	SetModel       string            `json:"setModel,omitempty" yaml:"setModel,omitempty"`
+	SetMaxTokens   int               `json:"setMaxTokens,omitempty" yaml:"setMaxTokens,omitempty"`
+	SetTemperature float64           `json:"setTemperature,omitempty" yaml:"setTemperature,omitempty"`
+	AddHeaders     map[string]string `json:"addHeaders,omitempty" yaml:"addHeaders,omitempty"`
+	ModifyBody     map[string]any    `json:"modifyBody,omitempty" yaml:"modifyBody,omitempty"`
 
 	ResponseFormat *ResponseFormat `json:"responseFormat,omitempty" yaml:"responseFormat,omitempty"`
 }
 
 // ResponseFormat defines structured output configuration
 type ResponseFormat struct {
-	Type       string                 `json:"type" yaml:"type"`
+	Type       string         `json:"type" yaml:"type"`
 	JSONSchema map[string]any `json:"jsonSchema,omitempty" yaml:"jsonSchema,omitempty"`
 }
 
@@ -137,14 +146,14 @@ func (l *Loader) ConfigPath() string {
 	return l.configFile
 }
 
-// EnsureExists creates the config directory and default config file if they don't exist.
-// Returns true if a new config file was created.
+// EnsureExists is a package-level convenience that calls (*Loader).EnsureExists
+// with the default loader.
 func EnsureExists() (bool, error) {
 	return NewLoader().EnsureExists()
 }
 
-// EnsureExists creates the config directory and copies the example config if needed.
-// Returns true if a new config file was created.
+// EnsureExists creates the config directory and writes the default config
+// file if one doesn't already exist. Returns true if a new file was created.
 func (l *Loader) EnsureExists() (bool, error) {
 	if err := os.MkdirAll(l.homeDir, 0700); err != nil {
 		return false, fmt.Errorf("create config directory: %w", err)
@@ -310,4 +319,3 @@ func findMapValue(mapping *yaml.Node, key string) *yaml.Node {
 	}
 	return nil
 }
-

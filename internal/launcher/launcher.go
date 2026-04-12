@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -14,173 +15,110 @@ import (
 	"github.com/dotcommander/cclauncher/internal/proxy"
 )
 
-type optEnvRule struct {
-	envKey   string
-	getValue func(config.OptimizationConfig) string
-}
+// SetupEnvironment prepares environment variables for Claude Code, starting
+// from the parent environment with any pre-existing ANTHROPIC_/CLAUDE_CODE_
+// entries stripped (to prevent parent-shell leakage).
+func SetupEnvironment(p config.Provider, opt config.OptimizationConfig) []string {
+	env := filterAnthropicEnv(os.Environ())
 
-func boolEnv(b bool) string {
-	if b {
-		return "1"
-	}
-	return ""
-}
-
-func intEnv(n int) string {
-	if n > 0 {
-		return fmt.Sprintf("%d", n)
-	}
-	return ""
-}
-
-var optEnvRules = []optEnvRule{
-	{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", func(o config.OptimizationConfig) string { return boolEnv(o.DisableNonessentialTraffic) }},
-	{"DISABLE_AUTOUPDATER", func(o config.OptimizationConfig) string { return boolEnv(o.DisableAutoupdater) }},
-	{"DISABLE_TELEMETRY", func(o config.OptimizationConfig) string { return boolEnv(o.DisableTelemetry) }},
-	{"DISABLE_ERROR_REPORTING", func(o config.OptimizationConfig) string { return boolEnv(o.DisableErrorReporting) }},
-	{"DISABLE_COST_WARNINGS", func(o config.OptimizationConfig) string { return boolEnv(o.DisableCostWarnings) }},
-	{"API_TIMEOUT_MS", func(o config.OptimizationConfig) string { return intEnv(o.APITimeoutMs) }},
-	{"CLAUDE_CODE_MAX_OUTPUT_TOKENS", func(o config.OptimizationConfig) string { return intEnv(o.MaxOutputTokens) }},
-}
-
-// SetupEnvironment prepares environment variables for Claude Code.
-func SetupEnvironment(providerConfig config.Provider, opt config.OptimizationConfig) []string {
-	// Clear existing Anthropic env vars
-	env := clearAnthropicEnvVars()
-
-	// Resolve auth: prefer AuthToken, fall back to APIKey
-	authToken := resolveAuthToken(providerConfig)
-
-	// Generate env vars from provider config
-	providerEnvVars := map[string]string{
-		"ANTHROPIC_BASE_URL":             providerConfig.BaseURL,
-		"ANTHROPIC_AUTH_TOKEN":           authToken,
-		"CLAUDE_CODE_OAUTH_TOKEN":        providerConfig.OAuthToken,
-		"ANTHROPIC_MODEL":                providerConfig.Model,
-		"ANTHROPIC_SMALL_FAST_MODEL":     providerConfig.SmallFastModel,
-		"ANTHROPIC_DEFAULT_OPUS_MODEL":   providerConfig.Model,
-		"ANTHROPIC_DEFAULT_SONNET_MODEL": providerConfig.Model,
-		"ANTHROPIC_DEFAULT_HAIKU_MODEL":  providerConfig.SmallFastModel,
-		"CLAUDE_CODE_SUBAGENT_MODEL":     providerConfig.SmallFastModel,
+	set := func(key, value string) {
+		if value != "" {
+			env = append(env, key+"="+value)
+		}
 	}
 
-	// Add provider env vars
-	env = addProviderEnvVars(env, providerEnvVars)
+	// Provider-derived variables
+	set("ANTHROPIC_BASE_URL", p.BaseURL)
+	set("ANTHROPIC_AUTH_TOKEN", p.AuthCredential())
+	set("CLAUDE_CODE_OAUTH_TOKEN", p.OAuthToken)
+	set("ANTHROPIC_MODEL", p.Model)
+	set("ANTHROPIC_SMALL_FAST_MODEL", p.SmallFastModel)
+	set("ANTHROPIC_DEFAULT_OPUS_MODEL", p.Model)
+	set("ANTHROPIC_DEFAULT_SONNET_MODEL", p.Model)
+	set("ANTHROPIC_DEFAULT_HAIKU_MODEL", p.SmallFastModel)
+	set("CLAUDE_CODE_SUBAGENT_MODEL", p.SmallFastModel)
 
-	// Apply optimization settings from config
-	env = applyOptimizationDefaults(env, opt)
-
-	// Increase Node.js heap size to prevent OOM errors
+	// Optimization flags — only set when enabled/non-zero so users can still
+	// override via parent shell.
+	if opt.DisableNonessentialTraffic {
+		set("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
+	}
+	if opt.DisableAutoupdater {
+		set("DISABLE_AUTOUPDATER", "1")
+	}
+	if opt.DisableTelemetry {
+		set("DISABLE_TELEMETRY", "1")
+	}
+	if opt.DisableErrorReporting {
+		set("DISABLE_ERROR_REPORTING", "1")
+	}
+	if opt.DisableCostWarnings {
+		set("DISABLE_COST_WARNINGS", "1")
+	}
+	if opt.APITimeoutMs > 0 {
+		set("API_TIMEOUT_MS", strconv.Itoa(opt.APITimeoutMs))
+	}
+	if opt.MaxOutputTokens > 0 {
+		set("CLAUDE_CODE_MAX_OUTPUT_TOKENS", strconv.Itoa(opt.MaxOutputTokens))
+	}
 	if opt.NodeMaxOldSpaceSize > 0 {
-		env = setEnvVar(env, "NODE_OPTIONS", fmt.Sprintf("--max-old-space-size=%d", opt.NodeMaxOldSpaceSize), false)
+		set("NODE_OPTIONS", fmt.Sprintf("--max-old-space-size=%d", opt.NodeMaxOldSpaceSize))
 	}
 
 	return env
 }
 
-// clearAnthropicEnvVars removes existing Claude Code environment variables
-// to prevent leaking values from the parent shell
-func clearAnthropicEnvVars() []string {
-	env := make([]string, 0, len(os.Environ()))
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "ANTHROPIC_") ||
-			strings.HasPrefix(e, "CLAUDE_CODE_") {
+// filterAnthropicEnv returns the parent environment minus ANTHROPIC_* and
+// CLAUDE_CODE_* entries so the child process sees only our curated values.
+// Bare-named Claude flags (DISABLE_AUTOUPDATER, API_TIMEOUT_MS, etc.) are
+// intentionally left intact so users can still override them from the parent
+// shell — SetupEnvironment only writes them when a config value is non-zero.
+func filterAnthropicEnv(parent []string) []string {
+	out := make([]string, 0, len(parent))
+	for _, e := range parent {
+		if strings.HasPrefix(e, "ANTHROPIC_") || strings.HasPrefix(e, "CLAUDE_CODE_") {
 			continue
 		}
-		env = append(env, e)
+		out = append(out, e)
 	}
-	return env
-}
-
-// addProviderEnvVars adds provider-specific environment variables
-func addProviderEnvVars(env []string, providerEnvVars map[string]string) []string {
-	for key, value := range providerEnvVars {
-		if value == "" {
-			continue
-		}
-		env = append(env, fmt.Sprintf("%s=%s", key, value))
-	}
-	return env
-}
-
-// setEnvVar sets an environment variable. If overwrite is true, replaces existing value.
-// If overwrite is false, only adds if the key doesn't exist.
-func setEnvVar(env []string, key, value string, overwrite bool) []string {
-	for i, e := range env {
-		if strings.HasPrefix(e, key+"=") {
-			if overwrite {
-				env[i] = fmt.Sprintf("%s=%s", key, value)
-			}
-			return env
-		}
-	}
-	return append(env, fmt.Sprintf("%s=%s", key, value))
-}
-
-// applyOptimizationDefaults sets optimization env vars from config
-func applyOptimizationDefaults(env []string, opt config.OptimizationConfig) []string {
-	for _, rule := range optEnvRules {
-		if v := rule.getValue(opt); v != "" {
-			env = setEnvVar(env, rule.envKey, v, false)
-		}
-	}
-	return env
+	return out
 }
 
 // ExecuteClaudeCode runs the Claude Code CLI with configured environment.
-// Uses syscall.Exec to replace the current process with Claude Code.
-// This function never returns on success.
+// Uses syscall.Exec to replace the current process — never returns on success.
 func ExecuteClaudeCode(env []string, args []string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
-
-	// Prepare argv for exec (argv[0] should be the command name)
+	// argv[0] is the command name by convention
 	argv := append([]string{"claude"}, args...)
-
-	// syscall.Exec replaces the current process with Claude Code
-	// On success, this function never returns
-	// On failure, it returns an error
 	return syscall.Exec(claudePath, argv, env)
 }
 
-// LaunchWithProxy starts a local proxy for request transformation, then
-// launches Claude Code pointing at the proxy. The Go process stays alive
-// to serve the proxy until Claude exits.
-func LaunchWithProxy(providerConfig config.Provider, opt config.OptimizationConfig, args []string) error {
-	authToken := resolveAuthToken(providerConfig)
+// LaunchWithProxy starts a local proxy for request transformation, then runs
+// Claude Code as a child pointed at the proxy. The Go process stays alive
+// until Claude exits so the proxy can serve requests.
+func LaunchWithProxy(p config.Provider, opt config.OptimizationConfig, args []string) error {
+	srv := proxy.NewProxy(p.BaseURL, p.AuthCredential(), p.OAuthToken, p.Transformer.Rules)
 
-	p := proxy.NewProxy(
-		providerConfig.BaseURL,
-		authToken,
-		providerConfig.OAuthToken,
-		providerConfig.Transformer.Rules,
-	)
-
-	port, err := p.Start()
+	port, err := srv.Start()
 	if err != nil {
 		return fmt.Errorf("start proxy: %w", err)
 	}
 	slog.Info("proxy listening", "port", port)
 
-	// Point Claude at the local proxy; proxy handles real auth
-	providerConfig.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-	providerConfig.AuthToken = ""
-	providerConfig.APIKey = ""
-	providerConfig.OAuthToken = ""
+	// Redirect Claude at the local proxy; the proxy handles upstream auth.
+	p.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	p.AuthToken, p.APIKey, p.OAuthToken = "", "", ""
 
-	env := SetupEnvironment(providerConfig, opt)
+	claudeErr := runClaude(SetupEnvironment(p, opt), args)
 
-	claudeErr := runClaude(env, args)
-
-	// Shut down proxy with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := p.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("proxy shutdown", "error", err)
 	}
-
 	return claudeErr
 }
 
@@ -193,27 +131,15 @@ func findClaude() (string, error) {
 	return p, nil
 }
 
-// resolveAuthToken returns the preferred auth credential for a provider.
-func resolveAuthToken(p config.Provider) string {
-	if p.AuthToken != "" {
-		return p.AuthToken
-	}
-	return p.APIKey
-}
-
-// runClaude spawns claude as a child process, piping stdio, and waits for exit.
-func runClaude(env []string, args []string) error {
+// runClaude spawns claude as a child process, wiring stdio and waiting for exit.
+func runClaude(env, args []string) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
-
 	cmd := exec.Command(claudePath, args...)
 	cmd.Env = env
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("claude exited: %w", err)
 	}
