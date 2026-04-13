@@ -1,8 +1,8 @@
-# CCL - Claude Code Launcher
+# CCL — Claude Code Launcher
 
 <p align="center"><a href="https://synthetic.new/?referral=jjrgrqtQXNCBf6C">Built with Synthetic.new API</a></p>
 
-A lightweight Go launcher for Claude Code that enables switching between LLM providers without complex configuration. Providers expose an Anthropic-compatible Messages API, so Claude Code works natively with each one.
+Switch Claude Code between LLM providers without touching a config file. CCL sets the right `ANTHROPIC_*` environment variables and hands off to `claude` — no proxy, no translation layer.
 
 ## Installation
 
@@ -10,7 +10,7 @@ A lightweight Go launcher for Claude Code that enables switching between LLM pro
 go install github.com/dotcommander/cclauncher/cmd/ccl@latest
 ```
 
-Or build from source:
+Ensure `~/go/bin` is in your `PATH`. To build from source:
 
 ```bash
 git clone https://github.com/dotcommander/cclauncher
@@ -18,78 +18,97 @@ cd cclauncher
 just install
 ```
 
-Ensure `~/go/bin` is in your `PATH`.
-
-## Usage
+## Quick Start
 
 ```bash
-ccl                    # Default provider (Synthetic/Kimi-K2.5)
-ccl -p deepseek        # DeepSeek-V3.2 via Synthetic.new
-ccl -p kimi2           # Kimi-K2.5 via Synthetic.new
-ccl -p minimax         # MiniMax-M2 via Synthetic.new
-ccl -p qwen            # Qwen3-VL-235B via Synthetic.new
-ccl -p qwen3-coder     # Qwen3-Coder-480B via Synthetic.new
-ccl -p claude          # Anthropic Claude (OAuth)
-ccl -p claude2         # Anthropic Claude (second account)
-ccl -p zai             # Z.ai (GLM-4.7)
-ccl -p llamabarn       # LlamaBarn (local)
-ccl use deepseek       # Set default provider (persists)
-ccl providers          # List all providers
-ccl version            # Show version information
-ccl update             # Update to latest version
+# Launch with the default provider (Synthetic.new / Kimi-K2.5)
+ccl
+
+# Launch with a specific provider
+ccl --provider deepseek
+
+# All other flags pass through to claude
+ccl --provider kimi2 "fix the null pointer in main.go"
+ccl --provider deepseek -c -p "/dc:next"
 ```
 
-All arguments after the provider flag are passed through to `claude`:
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `ccl` | Launch with the default provider |
+| `ccl --provider <name>` / `ccl -p <name>` | Select a provider for this session |
+| `ccl use <provider>` | Persist a provider as the new default |
+| `ccl providers` | List all configured providers with auth status |
+| `ccl update [--check]` | Update CCL to the latest version |
+| `ccl version` | Print the installed version |
+
+> **Tip:** `-p` is overloaded. CCL owns it for provider selection — but only as the **first** argument pair. Claude Code also uses `-p` for print mode. Rule: the first `-p`/`--provider` goes to CCL, every flag after it passes through to `claude` verbatim.
+>
+> ```bash
+> ccl -p deepseek -p "fix this bug"   # provider=deepseek, claude runs in print mode
+> ccl -p "fix this bug"               # ERROR — "fix this bug" is not a known provider
+> ```
+>
+> If your first argument looks like a provider name, CCL will claim it. Use `--provider` (long form) when in doubt.
+
+## Providers at a Glance
+
+CCL ships with three categories of provider:
+
+**Aggregator (Synthetic.new)** — one API key, many models:
+`synthetic` (default), `kimi2`, `qwen`, `qwen3-coder`, `deepseek-synthetic`, `minimax-synthetic`
 
 ```bash
-ccl -p deepseek "fix the null pointer in main.go"
+export SYNTHETIC_API_KEY="sk-..."
+ccl                          # Kimi-K2.5
+ccl --provider qwen3-coder   # Qwen3-Coder-480B
 ```
 
-## Providers
+**Cloud (native APIs)** — `deepseek`, `minimax`, `zai`:
 
-| Provider | Model | API |
-|----------|-------|-----|
-| **synthetic** (default) | Kimi-K2.5 | Synthetic.new |
-| **kimi2** | Kimi-K2.5 | Synthetic.new |
-| **deepseek** | DeepSeek-V3.2 | Synthetic.new |
-| **minimax** | MiniMax-M2 | Synthetic.new |
-| **qwen** | Qwen3-VL-235B | Synthetic.new |
-| **qwen3-coder** | Qwen3-Coder-480B | Synthetic.new |
-| **claude** | Claude (default) | Anthropic |
-| **claude2** | Claude (OAuth) | Anthropic |
-| **zai** | GLM-4.7 | Z.ai |
-| **llamabarn** | Local model | LlamaBarn |
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+ccl --provider deepseek
+```
+
+**Local** — `llamabarn`, `lmstudio`, `llamacpp` — no API key required, model server must be running locally.
+
+**Anthropic (OAuth)** — `claude`, `claude2` — authentication handled by the `claude` CLI itself.
+
+See [docs/providers.md](docs/providers.md) for the full reference with endpoints, env vars, and per-provider quirks.
 
 ## Configuration
 
-API keys can be set via environment variables:
+CCL creates `~/.config/cclauncher/config.yaml` on first run with all providers pre-configured. You only need to set the relevant API key:
 
 ```bash
-export SYNTHETIC_API_KEY="..."      # Synthetic.new providers
-export ZAI_API_KEY="..."            # Z.ai
-export LLAMABARN_API_KEY="..."      # LlamaBarn
-export CLAUDE2_OAUTH_TOKEN="..."    # Claude second account
+# Synthetic.new providers (synthetic, kimi2, qwen, qwen3-coder, ...)
+export SYNTHETIC_API_KEY="sk-..."
+
+# Native providers
+export DEEPSEEK_API_KEY="sk-..."
+export MINIMAX_API_KEY="sk-..."
+export ZAI_API_KEY="sk-..."
 ```
 
-Or use per-provider overrides with the `CCL_<PROVIDER>_API_KEY` format:
+To persist a default provider:
 
 ```bash
-export CCL_SYNTHETIC_API_KEY="..."  # Override for -p synthetic, deepseek, etc.
-export CCL_ZAI_API_KEY="..."        # Override for -p zai
+ccl use deepseek
 ```
 
-Priority order:
-1. `CCL_<PROVIDER>_API_KEY` environment variable (highest)
-2. Config file `authToken` field (with `${VAR}` interpolation)
-3. Default value from built-in provider template
+See [docs/configuration.md](docs/configuration.md) for the full config schema, env var interpolation rules, and optimization settings.
 
-Optional config file at `~/.config/cclauncher/config.yaml` with `${VAR:-default}` interpolation. See `examples/config.yaml.example`.
+## Local Models
 
-CCL validates authentication before launching and will error if the selected provider requires but lacks credentials.
+```bash
+ccl --provider lmstudio    # LM Studio on localhost:1234
+ccl --provider llamacpp    # llama.cpp server on localhost:8080
+ccl --provider llamabarn   # LlamaBarn on localhost:2276
+```
 
-## Architecture
-
-CCL sets the appropriate `ANTHROPIC_*` environment variables for the chosen provider, then launches the `claude` CLI. All providers use the Anthropic Messages API format natively, so no proxy or API translation is needed.
+See [docs/local-models.md](docs/local-models.md) for server setup and model recommendations.
 
 ## Development
 
