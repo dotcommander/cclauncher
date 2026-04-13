@@ -71,12 +71,12 @@ Anthropic-compatible API at `/api/anthropic` endpoint.
 Anthropic-compatible API at `/anthropic` endpoint. Used by most providers.
 
 ```go
-syntheticBaseConfig("hf:deepseek-ai/DeepSeek-V3.2")
+syntheticBaseConfig("hf:moonshotai/Kimi-K2.5")
 // Expands to:
 // BaseURL:        "https://api.synthetic.new/anthropic"
 // AuthToken:      getEnvOrDefault("SYNTHETIC_API_KEY", "")
-// Model:          "hf:deepseek-ai/DeepSeek-V3.2"
-// SmallFastModel: "hf:deepseek-ai/DeepSeek-V3.2"
+// Model:          "hf:moonshotai/Kimi-K2.5"
+// SmallFastModel: "hf:moonshotai/Kimi-K2.5"
 ```
 
 ## API Compatibility Requirements

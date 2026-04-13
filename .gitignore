@@ -53,8 +53,8 @@ logs/
 .claude/data/
 .claude/memory/
 
-# Documentation (generated/scratch, not source of truth)
-docs/
+# Documentation workspace (scratch only — source docs are tracked)
+docs/workspace/
 
 # Temp / WIP
 *.tmp

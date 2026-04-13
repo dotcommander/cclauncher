@@ -25,6 +25,11 @@ providers:
     model: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
     smallFastModel: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
   deepseek:
+    baseUrl: "https://api.deepseek.com/anthropic"
+    authToken: "${DEEPSEEK_API_KEY}"
+    model: "deepseek-chat"
+    smallFastModel: "deepseek-chat"
+  deepseek-synthetic:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
     model: "hf:deepseek-ai/DeepSeek-V3.2"
@@ -35,10 +40,15 @@ providers:
     model: "hf:moonshotai/Kimi-K2.5"
     smallFastModel: "hf:moonshotai/Kimi-K2.5"
   minimax:
+    baseUrl: "https://api.minimax.io/anthropic"
+    authToken: "${MINIMAX_API_KEY}"
+    model: "MiniMax-M2.7"
+    smallFastModel: "MiniMax-M2.7-highspeed"
+  minimax-synthetic:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:MiniMaxAI/MiniMax-M2"
-    smallFastModel: "hf:MiniMaxAI/MiniMax-M2"
+    model: "hf:MiniMaxAI/MiniMax-M2.1"
+    smallFastModel: "hf:MiniMaxAI/MiniMax-M2.1"
   claude:
     baseUrl: "https://api.anthropic.com"
   claude2:
@@ -54,6 +64,16 @@ providers:
     authToken: "${LLAMABARN_API_KEY}"
     model: "${LLAMABARN_MODEL:-local}"
     smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
+  lmstudio:
+    baseUrl: "${LMSTUDIO_BASE_URL:-http://localhost:1234}"
+    authToken: "${LMSTUDIO_API_KEY:-lmstudio}"
+    model: "${LMSTUDIO_MODEL:-openai/gpt-oss-20b}"
+    smallFastModel: "${LMSTUDIO_SMALL_MODEL:-openai/gpt-oss-20b}"
+  llamacpp:
+    baseUrl: "${LLAMACPP_BASE_URL:-http://localhost:8080}"
+    authToken: "${LLAMACPP_API_KEY:-llamacpp}"
+    model: "${LLAMACPP_MODEL:-local}"
+    smallFastModel: "${LLAMACPP_SMALL_MODEL:-local}"
 
 cli:
   defaultProvider: "synthetic"
@@ -70,4 +90,4 @@ optimization:
 
 # Router (optional) - override model routing
 # router:
-#   default: "deepseek:hf:deepseek-ai/DeepSeek-V3.2"
+#   default: "deepseek:deepseek-chat"

@@ -18,7 +18,7 @@ func TestGetProvider_AllProvidersExist(t *testing.T) {
 	require.NoError(t, err, "Failed to load test config")
 
 	// Should load all providers from fixture
-	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax", "llamabarn"}
+	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "deepseek-synthetic", "claude", "claude2", "zai", "synthetic", "minimax", "minimax-synthetic", "llamabarn", "lmstudio", "llamacpp"}
 	for _, name := range expectedProviders {
 		_, exists := GetProvider(cfg, name)
 		assert.True(t, exists, "Provider %s should exist", name)
@@ -30,7 +30,7 @@ func TestGetProvider_ProvidersExist(t *testing.T) {
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "claude", "claude2", "zai", "synthetic", "minimax"}
+	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "deepseek-synthetic", "claude", "claude2", "zai", "synthetic", "minimax", "minimax-synthetic"}
 
 	for _, providerName := range expectedProviders {
 		t.Run(providerName, func(t *testing.T) {
@@ -54,7 +54,12 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 		{"kimi2", "kimi2", "https://api.synthetic.new/anthropic"},
 		{"qwen", "qwen", "https://api.synthetic.new/anthropic"},
 		{"qwen3-coder", "qwen3-coder", "https://api.synthetic.new/anthropic"},
-		{"deepseek", "deepseek", "https://api.synthetic.new/anthropic"},
+		{"deepseek", "deepseek", "https://api.deepseek.com/anthropic"},
+		{"deepseek-synthetic", "deepseek-synthetic", "https://api.synthetic.new/anthropic"},
+		{"minimax", "minimax", "https://api.minimax.io/anthropic"},
+		{"minimax-synthetic", "minimax-synthetic", "https://api.synthetic.new/anthropic"},
+		{"lmstudio", "lmstudio", "http://localhost:1234"},
+		{"llamacpp", "llamacpp", "http://localhost:8080"},
 		{"zai", "zai", "https://api.z.ai/api/anthropic"},
 		{"synthetic", "synthetic", "https://api.synthetic.new/anthropic"},
 	}
@@ -74,8 +79,8 @@ func TestGetProvider_Models(t *testing.T) {
 	require.NoError(t, err)
 
 	deepseek, _ := GetProvider(cfg, "deepseek")
-	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.Model)
-	assert.Equal(t, "hf:deepseek-ai/DeepSeek-V3.2", deepseek.SmallFastModel)
+	assert.Equal(t, "deepseek-chat", deepseek.Model)
+	assert.Equal(t, "deepseek-chat", deepseek.SmallFastModel)
 
 	synthetic, _ := GetProvider(cfg, "synthetic")
 	assert.Equal(t, "hf:moonshotai/Kimi-K2.5", synthetic.Model)
