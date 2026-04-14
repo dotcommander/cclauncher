@@ -34,50 +34,27 @@ The project uses `just` as a task runner. Available commands:
 
 ### Adding New Providers
 
-When adding a new provider to CCL:
+Provider definitions live in YAML, not Go. To add a provider:
 
-1. **Update `internal/config/providers.go`**:
-   - Add provider configuration to the `Providers` map
-   - Use `syntheticBaseConfig()` for Synthetic.new providers
-   - Use `getEnvOrDefault()` for API keys
-   - For HuggingFace models via Synthetic.new, prefix with `hf:` (e.g., `hf:owner/model`)
+1. **Edit `internal/config/default-config.yaml`** (shipped defaults) and `internal/config/testdata/config.yaml` (test fixture):
+   ```yaml
+   providers:
+     myprovider:
+       baseUrl: "https://api.example.com/anthropic"
+       authToken: "${MYPROVIDER_API_KEY}"
+       model: "model-id"
+       smallFastModel: "model-id"
+   ```
 
-2. **API Endpoint Format**:
-   - All providers must use Anthropic-compatible API endpoints
-   - Avoid trailing `/v1` in BaseURL if the API adds it automatically
+2. **API endpoint format**: must be Anthropic Messages-compatible. Avoid trailing `/v1` if the endpoint adds it automatically.
 
-3. **Update CLI commands in `internal/cli/commands.go`**:
-   - Add provider to flag descriptions
-   - Update example text
+3. **Auth interpolation**: use `${VAR}` or `${VAR:-default}` in `authToken`. `CCL_<PROVIDER>_API_KEY` env vars override the config value at load time.
 
-4. **Update documentation**:
-   - docs/architecture/config.md: Add to providers table
+4. **Tests**: add the name to the expected-provider slices in `internal/config/providers_test.go` and a BaseURL row in `TestGetProvider_BaseURLs`.
 
-### Provider Configurations
+5. **Docs**: add an entry in `docs/providers.md`.
 
-#### Z.ai
-Anthropic-compatible API at `/api/anthropic` endpoint.
-
-```go
-"zai": {
-    BaseURL:        "https://api.z.ai/api/anthropic",
-    AuthToken:      getEnvOrDefault("ZAI_API_KEY", ""),
-    Model:          "glm-4.7",
-    SmallFastModel: "glm-4.5-air",
-}
-```
-
-#### Synthetic.new
-Anthropic-compatible API at `/anthropic` endpoint. Used by most providers.
-
-```go
-syntheticBaseConfig("hf:moonshotai/Kimi-K2.5")
-// Expands to:
-// BaseURL:        "https://api.synthetic.new/anthropic"
-// AuthToken:      getEnvOrDefault("SYNTHETIC_API_KEY", "")
-// Model:          "hf:moonshotai/Kimi-K2.5"
-// SmallFastModel: "hf:moonshotai/Kimi-K2.5"
-```
+No Go code changes are required for a new provider — the launcher reads the YAML and sets `ANTHROPIC_*` env vars generically.
 
 ## API Compatibility Requirements
 
@@ -103,8 +80,7 @@ Claude Code uses the Anthropic Messages API format, which expects:
 
 Per-provider API keys can be overridden using environment variables:
 ```bash
-export CCL_SYNTHETIC_API_KEY="your-key"
-export CCL_ZAI_API_KEY="your-key"
+export CCL_<PROVIDER>_API_KEY="your-key"
 ```
 
 Format: `CCL_<PROVIDER>_API_KEY` where `<PROVIDER>` is the provider name in uppercase.

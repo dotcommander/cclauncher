@@ -102,7 +102,7 @@ func newUseCmd() *cobra.Command {
 		Use:     "use <provider>",
 		Short:   "Set the default provider",
 		Long:    "Set the default LLM provider. This persists to config.yaml.",
-		Example: "  ccl use deepseek\n  ccl use synthetic",
+		Example: "  ccl use <provider>\n\n  Run 'ccl providers' to list available providers.",
 		Args:    cobra.ExactArgs(1),
 		RunE:    handlers.HandleUse,
 	}

@@ -237,7 +237,7 @@ func (l *Loader) Save(cfg *Config) error {
 func DefaultConfig() *Config {
 	return &Config{
 		Providers:    make(map[string]Provider),
-		CLI:          CLIConfig{DefaultProvider: "synthetic"},
+		CLI:          CLIConfig{DefaultProvider: "zai"},
 		Optimization: defaultOptimization(),
 	}
 }

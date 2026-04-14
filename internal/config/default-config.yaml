@@ -12,53 +12,30 @@ providers:
   synthetic:
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:moonshotai/Kimi-K2.5"
-    smallFastModel: "hf:moonshotai/Kimi-K2.5"
-  qwen:
-    baseUrl: "https://api.synthetic.new/anthropic"
-    authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:Qwen/Qwen3-235B-A22B-Thinking-2507"
-    smallFastModel: "hf:Qwen/Qwen3-235B-A22B-Thinking-2507"
-  qwen3-coder:
-    baseUrl: "https://api.synthetic.new/anthropic"
-    authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
-    smallFastModel: "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
+    model: "hf:zai-org/GLM-4.7"
+    smallFastModel: "hf:zai-org/GLM-4.7"
   deepseek:
     baseUrl: "https://api.deepseek.com/anthropic"
     authToken: "${DEEPSEEK_API_KEY}"
     model: "deepseek-chat"
     smallFastModel: "deepseek-chat"
-  deepseek-synthetic:
-    baseUrl: "https://api.synthetic.new/anthropic"
-    authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:deepseek-ai/DeepSeek-V3.2"
-    smallFastModel: "hf:deepseek-ai/DeepSeek-V3.2"
-  kimi2:
-    baseUrl: "https://api.synthetic.new/anthropic"
-    authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:moonshotai/Kimi-K2.5"
-    smallFastModel: "hf:moonshotai/Kimi-K2.5"
   minimax:
     baseUrl: "https://api.minimax.io/anthropic"
     authToken: "${MINIMAX_API_KEY}"
     model: "MiniMax-M2.7"
     smallFastModel: "MiniMax-M2.7-highspeed"
-  minimax-synthetic:
-    baseUrl: "https://api.synthetic.new/anthropic"
-    authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:MiniMaxAI/MiniMax-M2.1"
-    smallFastModel: "hf:MiniMaxAI/MiniMax-M2.1"
-  claude:
-    baseUrl: "https://api.anthropic.com"
-  claude2:
-    baseUrl: "https://api.anthropic.com"
-    oauthToken: "${CLAUDE2_OAUTH_TOKEN}"
   zai:
     baseUrl: "https://api.z.ai/api/anthropic"
     authToken: "${ZAI_API_KEY}"
     model: "${ZAI_MODEL:-glm-4.7}"
     smallFastModel: "${ZAI_SMALL_MODEL:-glm-4.5-air}"
+  openrouter:
+    baseUrl: "https://openrouter.ai/api"
+    authToken: "${OPENROUTER_API_KEY}"
+    model: "deepseek/deepseek-v3.2"
+    smallFastModel: "deepseek/deepseek-v3.2"
+  claude:
+    baseUrl: "https://api.anthropic.com"
   llamabarn:
     baseUrl: "${LLAMABARN_BASE_URL:-http://localhost:2276/v1}"
     authToken: "${LLAMABARN_API_KEY}"
@@ -76,7 +53,7 @@ providers:
     smallFastModel: "${LLAMACPP_SMALL_MODEL:-local}"
 
 cli:
-  defaultProvider: "synthetic"
+  defaultProvider: "zai"
 
 optimization:
   disableNonessentialTraffic: true

@@ -12,31 +12,33 @@ func getTestConfigPath() string {
 	return filepath.Join("testdata", "config.yaml")
 }
 
+// expectedProviders is the canonical provider set shipped in testdata/config.yaml.
+var expectedProviders = []string{
+	"synthetic", "deepseek", "minimax", "zai", "openrouter", "claude",
+	"llamabarn", "lmstudio", "llamacpp",
+}
+
 func TestGetProvider_AllProvidersExist(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err, "Failed to load test config")
 
-	// Should load all providers from fixture
-	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "deepseek-synthetic", "claude", "claude2", "zai", "synthetic", "minimax", "minimax-synthetic", "llamabarn", "lmstudio", "llamacpp"}
 	for _, name := range expectedProviders {
 		_, exists := GetProvider(cfg, name)
 		assert.True(t, exists, "Provider %s should exist", name)
 	}
 }
 
-func TestGetProvider_ProvidersExist(t *testing.T) {
+func TestGetProvider_ProvidersHaveBaseURL(t *testing.T) {
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	expectedProviders := []string{"kimi2", "qwen", "qwen3-coder", "deepseek", "deepseek-synthetic", "claude", "claude2", "zai", "synthetic", "minimax", "minimax-synthetic"}
-
-	for _, providerName := range expectedProviders {
-		t.Run(providerName, func(t *testing.T) {
-			provider, exists := GetProvider(cfg, providerName)
-			assert.True(t, exists, "Provider %s should exist", providerName)
-			assert.NotEmpty(t, provider.BaseURL, "Provider config should have BaseURL")
+	for _, name := range expectedProviders {
+		t.Run(name, func(t *testing.T) {
+			provider, exists := GetProvider(cfg, name)
+			assert.True(t, exists, "Provider %s should exist", name)
+			assert.NotEmpty(t, provider.BaseURL, "Provider %s should have BaseURL", name)
 		})
 	}
 }
@@ -51,17 +53,14 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 		providerName string
 		expectedURL  string
 	}{
-		{"kimi2", "kimi2", "https://api.synthetic.new/anthropic"},
-		{"qwen", "qwen", "https://api.synthetic.new/anthropic"},
-		{"qwen3-coder", "qwen3-coder", "https://api.synthetic.new/anthropic"},
+		{"synthetic", "synthetic", "https://api.synthetic.new/anthropic"},
 		{"deepseek", "deepseek", "https://api.deepseek.com/anthropic"},
-		{"deepseek-synthetic", "deepseek-synthetic", "https://api.synthetic.new/anthropic"},
 		{"minimax", "minimax", "https://api.minimax.io/anthropic"},
-		{"minimax-synthetic", "minimax-synthetic", "https://api.synthetic.new/anthropic"},
+		{"zai", "zai", "https://api.z.ai/api/anthropic"},
+		{"openrouter", "openrouter", "https://openrouter.ai/api"},
+		{"claude", "claude", "https://api.anthropic.com"},
 		{"lmstudio", "lmstudio", "http://localhost:1234"},
 		{"llamacpp", "llamacpp", "http://localhost:8080"},
-		{"zai", "zai", "https://api.z.ai/api/anthropic"},
-		{"synthetic", "synthetic", "https://api.synthetic.new/anthropic"},
 	}
 
 	for _, tt := range tests {
@@ -83,16 +82,12 @@ func TestGetProvider_Models(t *testing.T) {
 	assert.Equal(t, "deepseek-chat", deepseek.SmallFastModel)
 
 	synthetic, _ := GetProvider(cfg, "synthetic")
-	assert.Equal(t, "hf:moonshotai/Kimi-K2.5", synthetic.Model)
-	assert.Equal(t, "hf:moonshotai/Kimi-K2.5", synthetic.SmallFastModel)
+	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.Model)
+	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.SmallFastModel)
 
-	qwen, _ := GetProvider(cfg, "qwen")
-	assert.Equal(t, "hf:Qwen/Qwen3-VL-235B-A22B-Instruct", qwen.Model)
-	assert.Equal(t, "hf:Qwen/Qwen3-VL-235B-A22B-Instruct", qwen.SmallFastModel)
-
-	qwen3Coder, _ := GetProvider(cfg, "qwen3-coder")
-	assert.Equal(t, "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct", qwen3Coder.Model)
-	assert.Equal(t, "hf:Qwen/Qwen3-Coder-480B-A35B-Instruct", qwen3Coder.SmallFastModel)
+	openrouter, _ := GetProvider(cfg, "openrouter")
+	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.Model)
+	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.SmallFastModel)
 }
 
 func TestGetProvider_AuthenticationMethods(t *testing.T) {
@@ -100,52 +95,23 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
-	tests := []struct {
-		name         string
-		providerName string
-		hasAuthToken bool
-		hasAPIKey    bool
-	}{
-		{"kimi2 uses auth token", "kimi2", true, false},
-		{"qwen uses auth token", "qwen", true, false},
-		{"qwen3-coder uses auth token", "qwen3-coder", true, false},
-		{"deepseek uses auth token", "deepseek", true, false},
-		{"claude uses oauth", "claude", false, false},
-		{"claude2 uses oauth token", "claude2", false, false},
-		{"zai uses auth token", "zai", true, false},
-		{"synthetic uses auth token", "synthetic", true, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, _ := GetProvider(cfg, tt.providerName)
-
-			if tt.hasAuthToken {
-				// Auth tokens resolve from env vars at load time;
-				// may be empty in test environments if env vars aren't set
-				assert.Empty(t, provider.APIKey, "Provider %s should not have API key", tt.providerName)
-			}
-
-			if !tt.hasAuthToken && !tt.hasAPIKey {
-				// OAuth-only providers (claude, claude2)
-				assert.Empty(t, provider.APIKey, "Provider %s should not have API key", tt.providerName)
-			}
+	// Providers with bearer-token auth via authToken env-interpolation.
+	bearerAuthProviders := []string{"synthetic", "deepseek", "minimax", "zai", "openrouter"}
+	for _, name := range bearerAuthProviders {
+		t.Run(name+" uses auth token", func(t *testing.T) {
+			provider, _ := GetProvider(cfg, name)
+			// Auth tokens resolve from env vars at load time;
+			// may be empty in test environments if env vars aren't set.
+			assert.Empty(t, provider.APIKey, "Provider %s should not use APIKey field", name)
 		})
 	}
-}
 
-func TestGetProvider_EnvironmentVariableResolution(t *testing.T) {
-	// Test that CLAUDE2_OAUTH_TOKEN environment variable is resolved for the claude2 provider
-	testValue := "test-oauth-token"
-	t.Setenv("CLAUDE2_OAUTH_TOKEN", testValue)
-
-	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
-	cfg, err := loader.Load()
-	require.NoError(t, err)
-
-	claude2, exists := GetProvider(cfg, "claude2")
-	assert.True(t, exists)
-	assert.Equal(t, testValue, claude2.OAuthToken)
+	// OAuth-only: claude relies on the `claude` CLI's keychain — no creds in config.
+	t.Run("claude uses oauth", func(t *testing.T) {
+		claude, _ := GetProvider(cfg, "claude")
+		assert.Empty(t, claude.APIKey)
+		assert.Empty(t, claude.AuthToken)
+	})
 }
 
 func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
@@ -179,7 +145,7 @@ func TestLoad_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, cfg)
 	assert.NotEmpty(t, cfg.Providers)
-	assert.Equal(t, "synthetic", cfg.CLI.DefaultProvider)
+	assert.Equal(t, "zai", cfg.CLI.DefaultProvider)
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
@@ -200,7 +166,7 @@ func TestApplyDefaults(t *testing.T) {
 	applyDefaults(cfg)
 
 	// Should apply CLI defaults
-	assert.Equal(t, "synthetic", cfg.CLI.DefaultProvider)
+	assert.Equal(t, "zai", cfg.CLI.DefaultProvider)
 
 	// Should apply optimization defaults
 	assert.True(t, cfg.Optimization.DisableNonessentialTraffic)

@@ -1,7 +1,5 @@
 # CCL — Claude Code Launcher
 
-<p align="center"><a href="https://synthetic.new/?referral=jjrgrqtQXNCBf6C">Built with Synthetic.new API</a></p>
-
 Switch Claude Code between LLM providers without touching a config file. CCL sets the right `ANTHROPIC_*` environment variables and hands off to `claude` — no proxy, no translation layer.
 
 ## Installation
@@ -21,14 +19,14 @@ just install
 ## Quick Start
 
 ```bash
-# Launch with the default provider (Synthetic.new / Kimi-K2.5)
+# Launch with the default provider (Z.ai / GLM-4.7) — requires ZAI_API_KEY
 ccl
 
 # Launch with a specific provider
 ccl --provider deepseek
 
 # All other flags pass through to claude
-ccl --provider kimi2 "fix the null pointer in main.go"
+ccl --provider synthetic "fix the null pointer in main.go"
 ccl --provider deepseek -c -p "/dc:next"
 ```
 
@@ -54,27 +52,24 @@ ccl --provider deepseek -c -p "/dc:next"
 
 ## Providers at a Glance
 
-CCL ships with three categories of provider:
+CCL ships with nine providers across three categories:
 
-**Aggregator (Synthetic.new)** — one API key, many models:
-`synthetic` (default), `kimi2`, `qwen`, `qwen3-coder`, `deepseek-synthetic`, `minimax-synthetic`
+**Cloud (native APIs)** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`:
 
 ```bash
 export SYNTHETIC_API_KEY="sk-..."
-ccl                          # Kimi-K2.5
-ccl --provider qwen3-coder   # Qwen3-Coder-480B
-```
+ccl --provider synthetic     # GLM-4.7 via Synthetic.new
 
-**Cloud (native APIs)** — `deepseek`, `minimax`, `zai`:
-
-```bash
 export DEEPSEEK_API_KEY="sk-..."
 ccl --provider deepseek
+
+export OPENROUTER_API_KEY="sk-or-..."
+ccl --provider openrouter    # Anthropic Skin — any OpenRouter model
 ```
 
 **Local** — `llamabarn`, `lmstudio`, `llamacpp` — no API key required, model server must be running locally.
 
-**Anthropic (OAuth)** — `claude`, `claude2` — authentication handled by the `claude` CLI itself.
+**Anthropic (OAuth)** — `claude` — authentication handled by the `claude` CLI itself.
 
 See [docs/providers.md](docs/providers.md) for the full reference with endpoints, env vars, and per-provider quirks.
 
@@ -83,13 +78,11 @@ See [docs/providers.md](docs/providers.md) for the full reference with endpoints
 CCL creates `~/.config/cclauncher/config.yaml` on first run with all providers pre-configured. You only need to set the relevant API key:
 
 ```bash
-# Synthetic.new providers (synthetic, kimi2, qwen, qwen3-coder, ...)
-export SYNTHETIC_API_KEY="sk-..."
-
-# Native providers
-export DEEPSEEK_API_KEY="sk-..."
-export MINIMAX_API_KEY="sk-..."
-export ZAI_API_KEY="sk-..."
+export SYNTHETIC_API_KEY="sk-..."    # synthetic
+export DEEPSEEK_API_KEY="sk-..."     # deepseek
+export MINIMAX_API_KEY="sk-..."      # minimax
+export ZAI_API_KEY="sk-..."          # zai
+export OPENROUTER_API_KEY="sk-or-..." # openrouter
 ```
 
 To persist a default provider:

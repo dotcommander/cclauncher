@@ -44,7 +44,7 @@ Interpolation runs on `baseUrl`, `authToken`, `oauthToken`, `apiKey`, `model`, a
 Every provider supports a `CCL_<PROVIDER>_API_KEY` environment variable that overrides the config file value. Use this to test a different key without editing `config.yaml`.
 
 ```bash
-export CCL_SYNTHETIC_API_KEY="sk-test-key"   # overrides synthetic/kimi2/qwen/... authToken
+export CCL_SYNTHETIC_API_KEY="sk-test-key"   # overrides SYNTHETIC_API_KEY for synthetic
 export CCL_DEEPSEEK_API_KEY="sk-other"       # overrides deepseek authToken
 ```
 
@@ -66,13 +66,13 @@ providers:
     baseUrl: "https://api.example.com/anthropic"  # API endpoint (required)
     authToken: "${MY_API_KEY}"    # Bearer token for most providers
     apiKey: ""                    # Alternative auth field (less common)
-    oauthToken: ""                # OAuth token — used by claude/claude2
+    oauthToken: ""                # OAuth token — rarely used; claude handles its own auth
     model: "model-id"             # Primary model (ANTHROPIC_MODEL)
     smallFastModel: "model-id"    # Background/subagent model (ANTHROPIC_SMALL_FAST_MODEL)
 
 # --- CLI ---------------------------------------------------------------------
 cli:
-  defaultProvider: "synthetic"   # Provider used when --provider is not set
+  defaultProvider: "zai"         # Provider used when --provider is not set
 
 # --- Optimization ------------------------------------------------------------
 optimization:
@@ -142,8 +142,8 @@ The optional `router` block lets you pin specific model slots to named providers
 ```yaml
 # router:
 #   default: "deepseek:deepseek-chat"
-#   background: "synthetic:hf:moonshotai/Kimi-K2.5"
-#   longContext: "qwen:hf:Qwen/Qwen3-235B-A22B-Thinking-2507"
-#   think: "qwen3-coder:hf:Qwen/Qwen3-Coder-480B-A35B-Instruct"
+#   background: "synthetic:hf:zai-org/GLM-4.7"
+#   longContext: "openrouter:deepseek/deepseek-v3.2"
+#   think: "openrouter:anthropic/claude-sonnet-4.5"
 #   longContextThreshold: 50000
 ```

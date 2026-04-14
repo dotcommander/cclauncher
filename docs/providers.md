@@ -1,35 +1,26 @@
 # Providers
 
-CCL ships with 14 pre-configured providers across four categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
-
-## Aggregator (Synthetic.new)
-
-These providers all share one API key (`SYNTHETIC_API_KEY`) and route through `https://api.synthetic.new/anthropic`.
-
-```bash
-export SYNTHETIC_API_KEY="sk-..."
-ccl                          # synthetic — Kimi-K2.5 (default)
-ccl --provider kimi2         # kimi2 — Kimi-K2.5 (explicit)
-ccl --provider qwen          # qwen — Qwen3-235B-A22B-Thinking
-ccl --provider qwen3-coder   # qwen3-coder — Qwen3-Coder-480B
-ccl --provider deepseek-synthetic   # DeepSeek-V3.2 via Synthetic.new
-ccl --provider minimax-synthetic    # MiniMax-M2.1 via Synthetic.new
-```
-
-| Provider | Model | Small/Fast Model |
-|----------|-------|-----------------|
-| `synthetic` | `hf:moonshotai/Kimi-K2.5` | `hf:moonshotai/Kimi-K2.5` |
-| `kimi2` | `hf:moonshotai/Kimi-K2.5` | `hf:moonshotai/Kimi-K2.5` |
-| `qwen` | `hf:Qwen/Qwen3-235B-A22B-Thinking-2507` | same |
-| `qwen3-coder` | `hf:Qwen/Qwen3-Coder-480B-A35B-Instruct` | same |
-| `deepseek-synthetic` | `hf:deepseek-ai/DeepSeek-V3.2` | same |
-| `minimax-synthetic` | `hf:MiniMaxAI/MiniMax-M2.1` | same |
-
-`synthetic` and `kimi2` use the same model — `synthetic` is the default provider, `kimi2` is an explicit alias. Use `kimi2` in scripts where model intent should be obvious from the command; use `synthetic` in interactive sessions where "the default" is the clearer read.
+CCL ships with 9 pre-configured providers across three categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
 ## Cloud (Native APIs)
 
 These providers use their own API endpoints and require separate keys.
+
+### synthetic
+
+```bash
+export SYNTHETIC_API_KEY="sk-..."
+ccl --provider synthetic
+```
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://api.synthetic.new/anthropic` |
+| Model | `hf:zai-org/GLM-4.7` |
+| Small/Fast | `hf:zai-org/GLM-4.7` |
+| Env var | `SYNTHETIC_API_KEY` |
+
+`synthetic` routes through Synthetic.new to access GLM-4.7. Swap the model for any HuggingFace slug Synthetic hosts by editing `~/.config/cclauncher/config.yaml`.
 
 ### deepseek
 
@@ -80,9 +71,23 @@ export ZAI_MODEL="glm-4.7"
 export ZAI_SMALL_MODEL="glm-4.5-air"
 ```
 
-## Anthropic (OAuth)
+### openrouter
 
-These providers connect to `https://api.anthropic.com`. Authentication is handled by the `claude` CLI's own OAuth flow — CCL doesn't manage credentials for them.
+```bash
+export OPENROUTER_API_KEY="sk-or-..."
+ccl --provider openrouter
+```
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://openrouter.ai/api` |
+| Model | `deepseek/deepseek-v3.2` |
+| Small/Fast | `deepseek/deepseek-v3.2` |
+| Env var | `OPENROUTER_API_KEY` |
+
+OpenRouter exposes an Anthropic Messages-compatible route at `/api` (its "Anthropic Skin"). Swap the model to any [OpenRouter slug](https://openrouter.ai/models) — e.g. `anthropic/claude-sonnet-4.5`, `moonshotai/kimi-k2.5` — by editing the `model`/`smallFastModel` in `~/.config/cclauncher/config.yaml`.
+
+## Anthropic (OAuth)
 
 ### claude
 
@@ -90,16 +95,12 @@ These providers connect to `https://api.anthropic.com`. Authentication is handle
 ccl --provider claude
 ```
 
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://api.anthropic.com` |
+| Auth | `claude` CLI's own OAuth flow — CCL doesn't manage credentials |
+
 No API key needed. If you haven't authenticated, `claude` will prompt you to log in.
-
-### claude2
-
-```bash
-export CLAUDE2_OAUTH_TOKEN="..."
-ccl --provider claude2
-```
-
-`claude2` uses an explicit OAuth token stored in `CLAUDE2_OAUTH_TOKEN`. This lets you run a second Anthropic account alongside your primary one.
 
 ## Local
 
@@ -146,7 +147,7 @@ ccl --provider llamacpp    # localhost:8080
 Switch for a single session with `--provider`:
 
 ```bash
-ccl --provider minimax "review this PR"
+ccl --provider deepseek "review this PR"
 ```
 
 Persist a new default with `use`:
@@ -162,7 +163,7 @@ ccl use deepseek
 Every provider supports a `CCL_<PROVIDER>_API_KEY` override that takes precedence over the config file:
 
 ```bash
-export CCL_SYNTHETIC_API_KEY="sk-other-key"   # overrides SYNTHETIC_API_KEY for synthetic/kimi2/qwen/...
+export CCL_SYNTHETIC_API_KEY="sk-other-key"   # overrides SYNTHETIC_API_KEY for synthetic
 export CCL_DEEPSEEK_API_KEY="sk-other-key"    # overrides DEEPSEEK_API_KEY for deepseek
 ```
 
