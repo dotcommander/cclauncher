@@ -15,7 +15,7 @@ func getTestConfigPath() string {
 // expectedProviders is the canonical provider set shipped in testdata/config.yaml.
 var expectedProviders = []string{
 	"synthetic", "deepseek", "minimax", "zai", "openrouter", "claude",
-	"llamabarn", "lmstudio", "llamacpp",
+	"llamabarn", "lmstudio", "llamacpp", "omlx",
 }
 
 func TestGetProvider_AllProvidersExist(t *testing.T) {
@@ -59,8 +59,10 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 		{"zai", "zai", "https://api.z.ai/api/anthropic"},
 		{"openrouter", "openrouter", "https://openrouter.ai/api"},
 		{"claude", "claude", "https://api.anthropic.com"},
+		{"llamabarn", "llamabarn", "http://localhost:2276"},
 		{"lmstudio", "lmstudio", "http://localhost:1234"},
 		{"llamacpp", "llamacpp", "http://localhost:8080"},
+		{"omlx", "omlx", "http://localhost:8000"},
 	}
 
 	for _, tt := range tests {

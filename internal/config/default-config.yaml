@@ -37,7 +37,7 @@ providers:
   claude:
     baseUrl: "https://api.anthropic.com"
   llamabarn:
-    baseUrl: "${LLAMABARN_BASE_URL:-http://localhost:2276/v1}"
+    baseUrl: "${LLAMABARN_BASE_URL:-http://localhost:2276}"
     authToken: "${LLAMABARN_API_KEY}"
     model: "${LLAMABARN_MODEL:-local}"
     smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
@@ -51,6 +51,11 @@ providers:
     authToken: "${LLAMACPP_API_KEY:-llamacpp}"
     model: "${LLAMACPP_MODEL:-local}"
     smallFastModel: "${LLAMACPP_SMALL_MODEL:-local}"
+  omlx:
+    baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
+    authToken: "${OMLX_API_KEY:-gary-rode-the-blue-horse}"
+    model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"
+    smallFastModel: "${OMLX_SMALL_MODEL:-gemma-4-e2b-it-4bit}"
 
 cli:
   defaultProvider: "zai"
