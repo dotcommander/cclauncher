@@ -32,8 +32,8 @@ ccl --provider deepseek
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.deepseek.com/anthropic` |
-| Model | `deepseek-chat` |
-| Small/Fast | `deepseek-chat` |
+| Model | `deepseek-v4-pro` |
+| Small/Fast | `deepseek-v4-flash` |
 | Env var | `DEEPSEEK_API_KEY` |
 
 ### minimax

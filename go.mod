@@ -2,6 +2,8 @@ module github.com/dotcommander/cclauncher
 
 go 1.24.0
 
+toolchain go1.26.2
+
 require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
