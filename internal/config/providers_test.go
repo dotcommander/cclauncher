@@ -80,8 +80,8 @@ func TestGetProvider_Models(t *testing.T) {
 	require.NoError(t, err)
 
 	deepseek, _ := GetProvider(cfg, "deepseek")
-	assert.Equal(t, "deepseek-chat", deepseek.Model)
-	assert.Equal(t, "deepseek-chat", deepseek.SmallFastModel)
+	assert.Equal(t, "deepseek-v4-pro", deepseek.Model)
+	assert.Equal(t, "deepseek-v4-flash", deepseek.SmallFastModel)
 
 	synthetic, _ := GetProvider(cfg, "synthetic")
 	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.Model)
