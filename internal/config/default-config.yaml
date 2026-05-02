@@ -34,6 +34,11 @@ providers:
     authToken: "${OPENROUTER_API_KEY}"
     model: "deepseek/deepseek-v3.2"
     smallFastModel: "deepseek/deepseek-v3.2"
+  wafer:
+    baseUrl: "https://pass.wafer.ai"
+    authToken: "${WAFER_API_KEY}"
+    model: "${WAFER_MODEL:-GLM-5.1}"
+    smallFastModel: "${WAFER_SMALL_MODEL:-GLM-5.1}"
   claude:
     baseUrl: "https://api.anthropic.com"
   llamabarn:

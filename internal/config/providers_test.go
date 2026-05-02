@@ -14,7 +14,7 @@ func getTestConfigPath() string {
 
 // expectedProviders is the canonical provider set shipped in testdata/config.yaml.
 var expectedProviders = []string{
-	"synthetic", "deepseek", "minimax", "zai", "openrouter", "claude",
+	"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer", "claude",
 	"llamabarn", "lmstudio", "llamacpp", "omlx",
 }
 
@@ -58,6 +58,7 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 		{"minimax", "minimax", "https://api.minimax.io/anthropic"},
 		{"zai", "zai", "https://api.z.ai/api/anthropic"},
 		{"openrouter", "openrouter", "https://openrouter.ai/api"},
+		{"wafer", "wafer", "https://pass.wafer.ai"},
 		{"claude", "claude", "https://api.anthropic.com"},
 		{"llamabarn", "llamabarn", "http://localhost:2276"},
 		{"lmstudio", "lmstudio", "http://localhost:1234"},
@@ -98,7 +99,7 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Providers with bearer-token auth via authToken env-interpolation.
-	bearerAuthProviders := []string{"synthetic", "deepseek", "minimax", "zai", "openrouter"}
+	bearerAuthProviders := []string{"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer"}
 	for _, name := range bearerAuthProviders {
 		t.Run(name+" uses auth token", func(t *testing.T) {
 			provider, _ := GetProvider(cfg, name)
