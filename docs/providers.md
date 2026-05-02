@@ -1,6 +1,6 @@
 # Providers
 
-CCL ships with 9 pre-configured providers across three categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
+CCL ships with 11 pre-configured providers across three categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
 ## Cloud (Native APIs)
 
@@ -86,6 +86,29 @@ ccl --provider openrouter
 | Env var | `OPENROUTER_API_KEY` |
 
 OpenRouter exposes an Anthropic Messages-compatible route at `/api` (its "Anthropic Skin"). Swap the model to any [OpenRouter slug](https://openrouter.ai/models) — e.g. `anthropic/claude-sonnet-4.5`, `moonshotai/kimi-k2.5` — by editing the `model`/`smallFastModel` in `~/.config/cclauncher/config.yaml`.
+
+### wafer
+
+```bash
+export WAFER_API_KEY="..."
+ccl --provider wafer
+# or shorthand
+ccl -p wafer
+```
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://pass.wafer.ai` |
+| Model | `GLM-5.1` (override: `WAFER_MODEL`) |
+| Small/Fast | `GLM-5.1` (override: `WAFER_SMALL_MODEL`) |
+| Env var | `WAFER_API_KEY` |
+
+[Wafer Pass](https://docs.wafer.ai/wafer-pass) routes to frontier open models via an Anthropic-compatible endpoint. Available models include `GLM-5.1`, `DeepSeek-V4-Pro`, and `Qwen3.5-397B-A17B` (model names are case-insensitive). Override without editing config:
+
+```bash
+export WAFER_MODEL="DeepSeek-V4-Pro"
+export WAFER_SMALL_MODEL="Qwen3.5-397B-A17B"
+```
 
 ## Anthropic (OAuth)
 
