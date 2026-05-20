@@ -163,7 +163,7 @@ func (l *Loader) EnsureExists() (bool, error) {
 		return false, nil
 	}
 
-	if err := os.WriteFile(l.configFile, defaultConfigYAML, 0600); err != nil {
+	if err := writeFileAtomic(l.configFile, defaultConfigYAML, 0600); err != nil {
 		return false, fmt.Errorf("write default config: %w", err)
 	}
 
@@ -225,7 +225,7 @@ func (l *Loader) Save(cfg *Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(l.configFile, data, 0600); err != nil {
+	if err := writeFileAtomic(l.configFile, data, 0600); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 
@@ -303,7 +303,7 @@ func SetDefaultProvider(name string) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, out, 0600); err != nil {
+	if err := writeFileAtomic(path, out, 0600); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 
