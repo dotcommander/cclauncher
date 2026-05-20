@@ -57,14 +57,24 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 
 func isHelpFlag(s string) bool { return s == "-h" || s == "--help" }
 
-// extractProviderFromArgs finds and removes --provider from raw args.
-// Supports both "--provider value" and "--provider=value" forms.
+// extractProviderFromArgs finds and removes the CCL provider selector from raw
+// args. Supports "--provider value", "--provider=value", and the short form
+// "-p value" — but the short form is only claimed when it is the FIRST
+// argument pair, because claude itself uses `-p` for print mode and any later
+// `-p` must pass through verbatim.
 // Returns the provider name (empty if not found) and the remaining args.
 func extractProviderFromArgs(args []string) (string, []string) {
 	result := make([]string, 0, len(args))
 	var provider string
 
-	for i := 0; i < len(args); i++ {
+	// Short -p is only owned by CCL when it leads the argument list.
+	start := 0
+	if len(args) >= 2 && args[0] == "-p" {
+		provider = args[1]
+		start = 2
+	}
+
+	for i := start; i < len(args); i++ {
 		arg := args[i]
 
 		if arg == "--provider" && i+1 < len(args) {

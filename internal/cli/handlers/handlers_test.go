@@ -74,6 +74,36 @@ func TestExtractProviderFromArgs(t *testing.T) {
 			wantProv:   "",
 			wantClaude: []string{},
 		},
+		{
+			name:       "leading short -p claims provider, later -p passes through",
+			args:       []string{"-p", "deepseek", "-p", "hello"},
+			wantProv:   "deepseek",
+			wantClaude: []string{"-p", "hello"},
+		},
+		{
+			name:       "leading short -p claims provider alone",
+			args:       []string{"-p", "deepseek"},
+			wantProv:   "deepseek",
+			wantClaude: []string{},
+		},
+		{
+			name:       "non-leading -p passes through to claude",
+			args:       []string{"--continue", "-p", "hello"},
+			wantProv:   "",
+			wantClaude: []string{"--continue", "-p", "hello"},
+		},
+		{
+			name:       "leading short -p with later --provider override",
+			args:       []string{"-p", "deepseek", "--provider", "zai", "-p", "hello"},
+			wantProv:   "zai",
+			wantClaude: []string{"-p", "hello"},
+		},
+		{
+			name:       "lone -p at start without value passes through",
+			args:       []string{"-p"},
+			wantProv:   "",
+			wantClaude: []string{"-p"},
+		},
 	}
 
 	for _, tt := range tests {
