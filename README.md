@@ -1,6 +1,6 @@
 # CCL — Claude Code Launcher
 
-Switch Claude Code between LLM providers without touching a config file. CCL sets the right `ANTHROPIC_*` environment variables and hands off to `claude` — no proxy, no translation layer.
+Switch Claude Code between LLM providers without touching a config file. CCL sets the right `ANTHROPIC_*` environment variables and hands off to `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
 ## Installation
 
@@ -52,9 +52,9 @@ ccl --provider deepseek -c -p "/dc:next"
 
 ## Providers at a Glance
 
-CCL ships with nine providers across three categories:
+CCL ships with 11 pre-configured providers across three categories:
 
-**Cloud (native APIs)** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`:
+**Cloud (native APIs)** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`, `wafer`:
 
 ```bash
 export SYNTHETIC_API_KEY="sk-..."
@@ -65,9 +65,12 @@ ccl --provider deepseek
 
 export OPENROUTER_API_KEY="sk-or-..."
 ccl --provider openrouter    # Anthropic Skin — any OpenRouter model
+
+export WAFER_API_KEY="..."
+ccl --provider wafer         # Wafer Pass — frontier open models
 ```
 
-**Local** — `llamabarn`, `lmstudio`, `llamacpp` — no API key required, model server must be running locally.
+**Local** — `llamabarn`, `lmstudio`, `llamacpp`, `omlx` — no API key required, model server must be running locally.
 
 **Anthropic (OAuth)** — `claude` — authentication handled by the `claude` CLI itself.
 

@@ -135,6 +135,7 @@ See [local-models.md](local-models.md) for server setup instructions and model r
 ccl --provider llamabarn   # localhost:2276
 ccl --provider lmstudio    # localhost:1234
 ccl --provider llamacpp    # localhost:8080
+ccl --provider omlx        # localhost:8000
 ```
 
 ### llamabarn
@@ -164,6 +165,23 @@ ccl --provider llamacpp    # localhost:8080
 | Auth | Any non-empty token — defaults to `llamacpp` |
 
 `llama-server` supports the Anthropic Messages API natively when started with `--port 8080`. CCL connects directly without a translation layer.
+
+### omlx
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `http://localhost:8000` (override: `OMLX_BASE_URL`) |
+| Model | `Qwen3.5-9B-MLX-4bit` (override: `OMLX_MODEL`) |
+| Small/Fast | `gemma-4-e2b-it-4bit` (override: `OMLX_SMALL_MODEL`) |
+| Auth | `OMLX_API_KEY` (defaults to a placeholder token) |
+
+`omlx` targets a local MLX-backed Anthropic-compatible server on macOS. Override the endpoint and models without editing config:
+
+```bash
+export OMLX_BASE_URL="http://localhost:8000"
+export OMLX_MODEL="Qwen3.5-9B-MLX-4bit"
+export OMLX_SMALL_MODEL="gemma-4-e2b-it-4bit"
+```
 
 ## Switching Providers
 
