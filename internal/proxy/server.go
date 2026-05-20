@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,12 @@ import (
 
 	"github.com/dotcommander/cclauncher/internal/config"
 )
+
+// maxRequestBodyBytes caps the size of /v1/messages request bodies the proxy
+// will read into memory before forwarding. Anthropic Messages requests are
+// JSON conversation payloads; 10 MiB is comfortably above realistic prompts
+// while preventing unbounded reads from a misbehaving or hostile client.
+const maxRequestBodyBytes int64 = 10 << 20
 
 // Proxy is a local HTTP server that forwards Anthropic API requests to a provider.
 type Proxy struct {
@@ -76,13 +83,20 @@ func (p *Proxy) Shutdown(ctx context.Context) error {
 }
 
 func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			slog.Warn("request body exceeds limit", "limit", maxRequestBodyBytes, "error", err)
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		slog.Error("read request body", "error", err)
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	body, extraHeaders, err := ApplyRules(p.rules, body)
 	if err != nil {
