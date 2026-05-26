@@ -29,7 +29,7 @@ func ApplyRules(rules []config.TransformRule, body []byte) ([]byte, map[string]s
 
 	matched := false
 	for i, rule := range rules {
-		if !matchesRule(rule, model, maxTokens) {
+		if !matchesRule(rule, model, maxTokens, body) {
 			continue
 		}
 		matched = true
@@ -56,8 +56,12 @@ func ApplyRules(rules []config.TransformRule, body []byte) ([]byte, map[string]s
 
 // matchesRule returns true if all non-empty conditions on the rule are satisfied.
 // Empty/zero conditions are skipped (AND logic over present conditions only).
-func matchesRule(rule config.TransformRule, model string, maxTokens int) bool {
+func matchesRule(rule config.TransformRule, model string, maxTokens int, body []byte) bool {
 	if rule.ModelPattern != "" && !strings.Contains(model, rule.ModelPattern) {
+		return false
+	}
+
+	if rule.MessagePattern != "" && !strings.Contains(string(body), rule.MessagePattern) {
 		return false
 	}
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -19,6 +20,7 @@ var expectedProviders = []string{
 }
 
 func TestGetProvider_AllProvidersExist(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err, "Failed to load test config")
@@ -30,6 +32,7 @@ func TestGetProvider_AllProvidersExist(t *testing.T) {
 }
 
 func TestGetProvider_ProvidersHaveBaseURL(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
@@ -44,6 +47,7 @@ func TestGetProvider_ProvidersHaveBaseURL(t *testing.T) {
 }
 
 func TestGetProvider_BaseURLs(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
@@ -76,6 +80,7 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 }
 
 func TestGetProvider_Models(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
@@ -94,6 +99,7 @@ func TestGetProvider_Models(t *testing.T) {
 }
 
 func TestGetProvider_AuthenticationMethods(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 	require.NoError(t, err)
@@ -106,18 +112,55 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 			// Auth tokens resolve from env vars at load time;
 			// may be empty in test environments if env vars aren't set.
 			assert.Empty(t, provider.APIKey, "Provider %s should not use APIKey field", name)
+			assert.True(t, provider.RequiresAuth(), "Provider %s should require auth", name)
 		})
 	}
 
-	// OAuth-only: claude relies on the `claude` CLI's keychain — no creds in config.
-	t.Run("claude uses oauth", func(t *testing.T) {
+	// Optional-auth providers rely on either the claude CLI keychain or local
+	// servers that accept placeholder/no credentials.
+	optionalAuthProviders := []string{"claude", "llamabarn", "lmstudio", "llamacpp", "omlx"}
+	for _, name := range optionalAuthProviders {
+		t.Run(name+" does not require configured auth", func(t *testing.T) {
+			provider, _ := GetProvider(cfg, name)
+			assert.False(t, provider.RequiresAuth(), "Provider %s should not require auth", name)
+		})
+	}
+
+	t.Run("claude uses cli oauth", func(t *testing.T) {
 		claude, _ := GetProvider(cfg, "claude")
 		assert.Empty(t, claude.APIKey)
 		assert.Empty(t, claude.AuthToken)
 	})
 }
 
+func TestLoad_MergesDefaultAuthPolicyForExistingConfigs(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	data := []byte(`providers:
+  claude:
+    baseUrl: "https://api.anthropic.com"
+  deepseek:
+    baseUrl: "https://api.deepseek.com/anthropic"
+    model: "deepseek-v4-pro"
+  custom:
+    baseUrl: "https://api.example.com/anthropic"
+cli:
+  defaultProvider: "claude"
+`)
+	require.NoError(t, os.WriteFile(configPath, data, 0600))
+
+	loader := NewLoaderWithPaths(tmpDir, configPath)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+
+	require.False(t, cfg.Providers["claude"].RequiresAuth(), "known optional-auth provider policy should merge from defaults")
+	require.True(t, cfg.Providers["deepseek"].RequiresAuth(), "known required-auth provider policy should merge from defaults")
+	require.True(t, cfg.Providers["custom"].RequiresAuth(), "custom provider should fail closed without authRequired: false")
+}
+
 func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
+	t.Parallel()
 	// Use a temporary directory that doesn't have a config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -133,6 +176,7 @@ func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
 }
 
 func TestEnsureExists_ConfigExists(t *testing.T) {
+	t.Parallel()
 	// Use the testdata directory which has a config file
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 
@@ -142,6 +186,7 @@ func TestEnsureExists_ConfigExists(t *testing.T) {
 }
 
 func TestLoad_Success(t *testing.T) {
+	t.Parallel()
 	loader := NewLoaderWithPaths("testdata", getTestConfigPath())
 	cfg, err := loader.Load()
 
@@ -152,6 +197,7 @@ func TestLoad_Success(t *testing.T) {
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	loader := NewLoaderWithPaths(tmpDir, filepath.Join(tmpDir, "nonexistent.yaml"))
 
@@ -160,6 +206,7 @@ func TestLoad_FileNotFound(t *testing.T) {
 }
 
 func TestApplyDefaults(t *testing.T) {
+	t.Parallel()
 	cfg := &Config{
 		Providers: map[string]Provider{
 			"test": {BaseURL: "https://example.com"},

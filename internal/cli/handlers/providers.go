@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 
+	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -15,9 +17,15 @@ func HandleProviders(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	out := cmd.OutOrStdout()
+	return writeProviders(out, cfg)
+}
 
+func writeProviders(out io.Writer, cfg *config.Config) error {
 	const format = "%-16s %-48s %-6s %s\n"
-	fmt.Printf(format, "PROVIDER", "MODEL", "AUTH", "")
+	if _, err := fmt.Fprintf(out, format, "PROVIDER", "MODEL", "AUTH", ""); err != nil {
+		return err
+	}
 	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
 		p := cfg.Providers[name]
 		auth := "no"
@@ -28,7 +36,9 @@ func HandleProviders(cmd *cobra.Command, _ []string) error {
 		if name == cfg.CLI.DefaultProvider {
 			marker = "(default)"
 		}
-		fmt.Printf(format, name, p.Model, auth, marker)
+		if _, err := fmt.Fprintf(out, format, name, p.Model, auth, marker); err != nil {
+			return err
+		}
 	}
 	return nil
 }

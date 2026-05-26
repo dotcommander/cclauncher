@@ -129,4 +129,39 @@ func TestApplyRules(t *testing.T) {
 		// Unchanged fields remain intact.
 		require.Equal(t, "claude-sonnet-4", parsed["model"])
 	})
+
+	t.Run("message pattern must match body", func(t *testing.T) {
+		t.Parallel()
+
+		rule := newRule("sonnet", 0, 0)
+		rule.MessagePattern = "route-fast"
+		rule.SetModel = "claude-haiku-3"
+
+		body := []byte(`{"model":"claude-sonnet-4","messages":[{"role":"user","content":"please route-fast"}]}`)
+
+		out, headers, err := ApplyRules([]config.TransformRule{rule}, body)
+
+		require.NoError(t, err)
+		require.Empty(t, headers)
+
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal(out, &parsed))
+		require.Equal(t, "claude-haiku-3", parsed["model"])
+	})
+
+	t.Run("message pattern mismatch does not mutate", func(t *testing.T) {
+		t.Parallel()
+
+		rule := newRule("sonnet", 0, 0)
+		rule.MessagePattern = "route-fast"
+		rule.SetModel = "claude-haiku-3"
+
+		body := []byte(`{"model":"claude-sonnet-4","messages":[{"role":"user","content":"normal"}]}`)
+
+		out, headers, err := ApplyRules([]config.TransformRule{rule}, body)
+
+		require.NoError(t, err)
+		require.Nil(t, headers)
+		require.Equal(t, string(body), string(out))
+	})
 }
