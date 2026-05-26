@@ -64,6 +64,7 @@ The format is `CCL_` + provider name in uppercase + `_API_KEY`.
 providers:
   <name>:
     baseUrl: "https://api.example.com/anthropic"  # API endpoint (required)
+    authRequired: true            # Set false for local/OAuth providers with no key requirement
     authToken: "${MY_API_KEY}"    # Bearer token for most providers
     apiKey: ""                    # Alternative auth field (less common)
     oauthToken: ""                # OAuth token — rarely used; claude handles its own auth
@@ -108,6 +109,7 @@ The `optimization` block controls environment variables passed to every `claude`
 | Field | Yaml key | Env var set | Purpose |
 |-------|----------|-------------|---------|
 | `baseUrl` | `baseUrl` | `ANTHROPIC_BASE_URL` | API endpoint |
+| `authRequired` | `authRequired` | *(none)* | Whether CCL blocks launch when no credential is configured |
 | `authToken` / `apiKey` | `authToken`, `apiKey` | `ANTHROPIC_AUTH_TOKEN` | Bearer token; `authToken` takes precedence |
 | `oauthToken` | `oauthToken` | `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token for Anthropic providers |
 | `model` | `model` | `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL` | Primary model |

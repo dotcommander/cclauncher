@@ -105,9 +105,25 @@ providers:
 
 LlamaBarn is a local model runner that exposes an OpenAI-compatible API on port 2276.
 
+Key local paths:
+
+| What | Value |
+|------|-------|
+| App | `/Applications/LlamaBarn.app` |
+| API | `http://localhost:2276/v1` |
+| llama-server | `/opt/homebrew/bin/llama-server` |
+| Upstream | `ggml-org/LlamaBarn` |
+
+Update with:
+
+```bash
+brew upgrade --cask llamabarn
+brew upgrade llama.cpp
+```
+
 ### Start the server
 
-Follow the LlamaBarn documentation for your platform. By default it binds to `http://localhost:2276/v1`.
+Follow the LlamaBarn documentation for your platform. Configure CCL with the server root, `http://localhost:2276`; CCL appends `/v1/messages` when launching Claude Code.
 
 ### Launch Claude Code
 
@@ -119,7 +135,7 @@ ccl --provider llamabarn
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LLAMABARN_BASE_URL` | `http://localhost:2276/v1` | Server address |
+| `LLAMABARN_BASE_URL` | `http://localhost:2276` | Server root URL |
 | `LLAMABARN_MODEL` | `local` | Model to request |
 | `LLAMABARN_SMALL_MODEL` | `local` | Background/subagent model |
 | `LLAMABARN_API_KEY` | *(empty)* | API key if your server requires one |
@@ -129,7 +145,8 @@ ccl --provider llamabarn
 ```yaml
 providers:
   llamabarn:
-    baseUrl: "http://localhost:2276/v1"
+    baseUrl: "http://localhost:2276"
+    authRequired: false
     authToken: "${LLAMABARN_API_KEY}"
     model: "${LLAMABARN_MODEL:-local}"
     smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"

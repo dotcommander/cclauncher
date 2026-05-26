@@ -142,7 +142,7 @@ ccl --provider omlx        # localhost:8000
 
 | Field | Value |
 |-------|-------|
-| Endpoint | `http://localhost:2276/v1` (override: `LLAMABARN_BASE_URL`) |
+| Endpoint | `http://localhost:2276` (override: `LLAMABARN_BASE_URL`) |
 | Model | `local` (override: `LLAMABARN_MODEL`) |
 | Auth | `LLAMABARN_API_KEY` (optional) |
 

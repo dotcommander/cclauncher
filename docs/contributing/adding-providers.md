@@ -6,6 +6,7 @@ Add a provider in `~/.config/cclauncher/config.yaml` — no code changes needed:
 providers:
   myprovider:
     baseUrl: "https://api.myprovider.com/anthropic"
+    authRequired: true
     authToken: "${MYPROVIDER_API_KEY}"
     model: "my-model-name"
     smallFastModel: "my-fast-model"
@@ -27,6 +28,7 @@ Most providers implement the Anthropic Messages API at an `/anthropic` path:
 ```yaml
 myprovider:
   baseUrl: "https://api.myprovider.com/anthropic"
+  authRequired: true
   authToken: "${MYPROVIDER_API_KEY}"
   model: "model-name"
   smallFastModel: "model-name"

@@ -1,6 +1,14 @@
 ## Development Notes
 
 - Skip the ui and web ui feature! Do NOT implement.
+- Dotfiles live at `/path/to/project/Library/CloudStorage/Dropbox/.dotfiles/`; do not assume `~/Dropbox/` or `~/dropbox/`.
+- The local LLM utilities script is `llm.sh`, not `llms.sh`.
+- Justfiles should include a default recipe that prints the menu:
+  ```just
+  default:
+      @just --list
+  ```
+- Imported `justclaude` notes were consolidated here. The retained image asset is `docs/assets/justclaude-freeze.png`.
 
 ## Verification (BLOCKING)
 
