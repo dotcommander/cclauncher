@@ -35,7 +35,7 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if !provider.HasAuth() {
+	if provider.RequiresAuth() && !provider.HasAuth() {
 		return fmt.Errorf(
 			"provider %q requires authentication: set %s_API_KEY or configure authToken in %s",
 			providerName, strings.ToUpper(providerName), config.GetConfigPath(),

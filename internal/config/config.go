@@ -39,6 +39,7 @@ type Provider struct {
 	APIKey         string            `json:"apiKey,omitempty" yaml:"apiKey,omitempty"`
 	AuthToken      string            `json:"authToken,omitempty" yaml:"authToken,omitempty"`
 	OAuthToken     string            `json:"oauthToken,omitempty" yaml:"oauthToken,omitempty"`
+	AuthRequired   *bool             `json:"authRequired,omitempty" yaml:"authRequired,omitempty"`
 	BaseURL        string            `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
 	Model          string            `json:"model,omitempty" yaml:"model,omitempty"`
 	SmallFastModel string            `json:"smallFastModel,omitempty" yaml:"smallFastModel,omitempty"`
@@ -48,6 +49,12 @@ type Provider struct {
 // HasAuth reports whether the provider has any authentication credential configured.
 func (p Provider) HasAuth() bool {
 	return p.AuthToken != "" || p.APIKey != "" || p.OAuthToken != ""
+}
+
+// RequiresAuth reports whether a missing credential should block launch.
+// The default is true so custom providers fail closed unless config opts out.
+func (p Provider) RequiresAuth() bool {
+	return p.AuthRequired == nil || *p.AuthRequired
 }
 
 // AuthCredential returns the preferred auth token for the Anthropic-compatible
@@ -207,6 +214,7 @@ func (l *Loader) Load() (*Config, error) {
 	}
 
 	applyDefaults(&cfg)
+	mergeDefaultProviderMetadata(&cfg)
 	interpolateProviderFields(&cfg)
 	overrideFromEnv(&cfg)
 

@@ -10,53 +10,64 @@
 
 providers:
   synthetic:
+    authRequired: true
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
     model: "hf:zai-org/GLM-4.7"
     smallFastModel: "hf:zai-org/GLM-4.7"
   deepseek:
+    authRequired: true
     baseUrl: "https://api.deepseek.com/anthropic"
     authToken: "${DEEPSEEK_API_KEY}"
     model: "deepseek-v4-pro"
     smallFastModel: "deepseek-v4-flash"
   minimax:
+    authRequired: true
     baseUrl: "https://api.minimax.io/anthropic"
     authToken: "${MINIMAX_API_KEY}"
     model: "MiniMax-M2.7"
     smallFastModel: "MiniMax-M2.7-highspeed"
   zai:
+    authRequired: true
     baseUrl: "https://api.z.ai/api/anthropic"
     authToken: "${ZAI_API_KEY}"
     model: "${ZAI_MODEL:-glm-4.7}"
     smallFastModel: "${ZAI_SMALL_MODEL:-glm-4.5-air}"
   openrouter:
+    authRequired: true
     baseUrl: "https://openrouter.ai/api"
     authToken: "${OPENROUTER_API_KEY}"
     model: "deepseek/deepseek-v3.2"
     smallFastModel: "deepseek/deepseek-v3.2"
   wafer:
+    authRequired: true
     baseUrl: "https://pass.wafer.ai"
     authToken: "${WAFER_API_KEY}"
     model: "${WAFER_MODEL:-GLM-5.1}"
     smallFastModel: "${WAFER_SMALL_MODEL:-GLM-5.1}"
   claude:
+    authRequired: false
     baseUrl: "https://api.anthropic.com"
   llamabarn:
+    authRequired: false
     baseUrl: "${LLAMABARN_BASE_URL:-http://localhost:2276}"
     authToken: "${LLAMABARN_API_KEY}"
     model: "${LLAMABARN_MODEL:-local}"
     smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
   lmstudio:
+    authRequired: false
     baseUrl: "${LMSTUDIO_BASE_URL:-http://localhost:1234}"
     authToken: "${LMSTUDIO_API_KEY:-lmstudio}"
     model: "${LMSTUDIO_MODEL:-openai/gpt-oss-20b}"
     smallFastModel: "${LMSTUDIO_SMALL_MODEL:-openai/gpt-oss-20b}"
   llamacpp:
+    authRequired: false
     baseUrl: "${LLAMACPP_BASE_URL:-http://localhost:8080}"
     authToken: "${LLAMACPP_API_KEY:-llamacpp}"
     model: "${LLAMACPP_MODEL:-local}"
     smallFastModel: "${LLAMACPP_SMALL_MODEL:-local}"
   omlx:
+    authRequired: false
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
     authToken: "${OMLX_API_KEY}"
     model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"

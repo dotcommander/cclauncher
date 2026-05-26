@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 func defaultOptimization() OptimizationConfig {
@@ -44,6 +46,26 @@ func applyOptDefaults(cfg *Config) {
 	}
 	if cfg.Optimization.NodeMaxOldSpaceSize == 0 {
 		cfg.Optimization.NodeMaxOldSpaceSize = defaults.NodeMaxOldSpaceSize
+	}
+}
+
+// mergeDefaultProviderMetadata carries non-secret provider policy from the
+// embedded defaults into existing user configs that predate those fields.
+func mergeDefaultProviderMetadata(cfg *Config) {
+	var defaults Config
+	if err := yaml.Unmarshal(defaultConfigYAML, &defaults); err != nil {
+		return
+	}
+
+	for name, provider := range cfg.Providers {
+		defaultProvider, ok := defaults.Providers[name]
+		if !ok {
+			continue
+		}
+		if provider.AuthRequired == nil {
+			provider.AuthRequired = defaultProvider.AuthRequired
+			cfg.Providers[name] = provider
+		}
 	}
 }
 
