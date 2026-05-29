@@ -214,7 +214,7 @@ func (l *Loader) Load() (*Config, error) {
 	}
 
 	applyDefaults(&cfg)
-	mergeDefaultProviderMetadata(&cfg)
+	mergeDefaultProviders(&cfg)
 	interpolateProviderFields(&cfg)
 	overrideFromEnv(&cfg)
 

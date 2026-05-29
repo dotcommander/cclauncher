@@ -29,6 +29,7 @@ func newRootCmd() *cobra.Command {
   ccl -c -p "/dc:next"                 # Continue session + print mode
   ccl --model sonnet "hello"           # Pass claude flags directly`,
 		DisableFlagParsing: true,
+		SilenceErrors:      true,
 		Args:               cobra.ArbitraryArgs,
 		PersistentPreRunE:  loadConfigIntoContext,
 		RunE:               handlers.HandleCode,

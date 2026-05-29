@@ -19,6 +19,7 @@ func TestExtractProviderFromArgs(t *testing.T) {
 		args       []string
 		wantProv   string
 		wantClaude []string
+		wantErr    string
 	}{
 		{
 			name:       "no provider flag",
@@ -51,10 +52,9 @@ func TestExtractProviderFromArgs(t *testing.T) {
 			wantClaude: []string{"--continue"},
 		},
 		{
-			name:       "provider flag without value at end",
-			args:       []string{"--provider"},
-			wantProv:   "",
-			wantClaude: []string{"--provider"},
+			name:    "provider flag without value at end",
+			args:    []string{"--provider"},
+			wantErr: "--provider requires a provider name",
 		},
 		{
 			name:       "empty args",
@@ -75,10 +75,9 @@ func TestExtractProviderFromArgs(t *testing.T) {
 			wantClaude: []string{"--dangerously-skip-permissions", "hello"},
 		},
 		{
-			name:       "provider equals empty value",
-			args:       []string{"--provider="},
-			wantProv:   "",
-			wantClaude: []string{},
+			name:    "provider equals empty value",
+			args:    []string{"--provider="},
+			wantErr: "--provider requires a provider name",
 		},
 		{
 			name:       "leading short -p claims provider, later -p passes through",
@@ -105,17 +104,31 @@ func TestExtractProviderFromArgs(t *testing.T) {
 			wantClaude: []string{"-p", "hello"},
 		},
 		{
-			name:       "lone -p at start without value passes through",
-			args:       []string{"-p"},
-			wantProv:   "",
-			wantClaude: []string{"-p"},
+			name:    "lone -p at start without value passes through",
+			args:    []string{"-p"},
+			wantErr: "-p requires a provider name",
+		},
+		{
+			name:    "leading short -p with flag-looking value errors",
+			args:    []string{"-p", "--continue"},
+			wantErr: "-p requires a provider name",
+		},
+		{
+			name:    "provider flag with flag-looking value errors",
+			args:    []string{"--provider", "--continue"},
+			wantErr: "--provider requires a provider name",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			gotProv, gotClaude := extractProviderFromArgs(tt.args)
+			gotProv, gotClaude, err := extractProviderFromArgs(tt.args)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
 			if gotProv != tt.wantProv {
 				t.Errorf("provider = %q, want %q", gotProv, tt.wantProv)
 			}

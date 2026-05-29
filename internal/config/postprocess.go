@@ -49,12 +49,23 @@ func applyOptDefaults(cfg *Config) {
 	}
 }
 
-// mergeDefaultProviderMetadata carries non-secret provider policy from the
-// embedded defaults into existing user configs that predate those fields.
-func mergeDefaultProviderMetadata(cfg *Config) {
+// mergeDefaultProviders carries shipped providers and non-secret provider
+// policy from the embedded defaults into existing user configs. User-defined
+// provider fields win when a provider already exists.
+func mergeDefaultProviders(cfg *Config) {
 	var defaults Config
 	if err := yaml.Unmarshal(defaultConfigYAML, &defaults); err != nil {
 		return
+	}
+
+	if cfg.Providers == nil {
+		cfg.Providers = make(map[string]Provider, len(defaults.Providers))
+	}
+
+	for name, defaultProvider := range defaults.Providers {
+		if _, ok := cfg.Providers[name]; !ok {
+			cfg.Providers[name] = defaultProvider
+		}
 	}
 
 	for name, provider := range cfg.Providers {

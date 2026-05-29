@@ -29,7 +29,10 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	providerName, claudeArgs := extractProviderFromArgs(args)
+	providerName, claudeArgs, err := extractProviderFromArgs(args)
+	if err != nil {
+		return err
+	}
 	providerName, provider, err := resolveProvider(providerName, cfg)
 	if err != nil {
 		return err
@@ -62,14 +65,18 @@ func isHelpFlag(s string) bool { return s == "-h" || s == "--help" }
 // "-p value" — but the short form is only claimed when it is the FIRST
 // argument pair, because claude itself uses `-p` for print mode and any later
 // `-p` must pass through verbatim.
-// Returns the provider name (empty if not found) and the remaining args.
-func extractProviderFromArgs(args []string) (string, []string) {
+// Returns the provider name (empty if not found), the remaining args, and a
+// usage error if a CCL-owned provider selector is missing its value.
+func extractProviderFromArgs(args []string) (string, []string, error) {
 	result := make([]string, 0, len(args))
 	var provider string
 
 	// Short -p is only owned by CCL when it leads the argument list.
 	start := 0
-	if len(args) >= 2 && args[0] == "-p" {
+	if len(args) > 0 && args[0] == "-p" {
+		if len(args) < 2 || strings.HasPrefix(args[1], "-") {
+			return "", nil, fmt.Errorf("-p requires a provider name")
+		}
 		provider = args[1]
 		start = 2
 	}
@@ -77,13 +84,19 @@ func extractProviderFromArgs(args []string) (string, []string) {
 	for i := start; i < len(args); i++ {
 		arg := args[i]
 
-		if arg == "--provider" && i+1 < len(args) {
+		if arg == "--provider" {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				return "", nil, fmt.Errorf("--provider requires a provider name")
+			}
 			provider = args[i+1]
 			i++ // skip the value
 			continue
 		}
 
 		if v, ok := strings.CutPrefix(arg, "--provider="); ok {
+			if v == "" {
+				return "", nil, fmt.Errorf("--provider requires a provider name")
+			}
 			provider = v
 			continue
 		}
@@ -91,7 +104,7 @@ func extractProviderFromArgs(args []string) (string, []string) {
 		result = append(result, arg)
 	}
 
-	return provider, result
+	return provider, result, nil
 }
 
 // resolveProvider validates a provider name and returns its resolved name and config.

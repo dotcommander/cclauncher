@@ -131,6 +131,12 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 		assert.Empty(t, claude.APIKey)
 		assert.Empty(t, claude.AuthToken)
 	})
+
+	t.Run("omlx ships without embedded auth token", func(t *testing.T) {
+		omlx, _ := GetProvider(cfg, "omlx")
+		assert.Empty(t, omlx.AuthToken)
+		assert.Empty(t, omlx.APIKey)
+	})
 }
 
 func TestLoad_MergesDefaultAuthPolicyForExistingConfigs(t *testing.T) {
@@ -157,6 +163,21 @@ cli:
 	require.False(t, cfg.Providers["claude"].RequiresAuth(), "known optional-auth provider policy should merge from defaults")
 	require.True(t, cfg.Providers["deepseek"].RequiresAuth(), "known required-auth provider policy should merge from defaults")
 	require.True(t, cfg.Providers["custom"].RequiresAuth(), "custom provider should fail closed without authRequired: false")
+	require.Contains(t, cfg.Providers, "wafer", "new shipped providers should be available to existing configs")
+	require.Contains(t, cfg.Providers, "omlx", "new shipped providers should be available to existing configs")
+	require.Equal(t, "https://pass.wafer.ai", cfg.Providers["wafer"].BaseURL)
+	require.Equal(t, "https://api.example.com/anthropic", cfg.Providers["custom"].BaseURL)
+}
+
+func TestExampleConfigMatchesEmbeddedDefault(t *testing.T) {
+	t.Parallel()
+
+	examplePath := filepath.Join("..", "..", "examples", "config.yaml.example")
+	example, err := os.ReadFile(examplePath)
+	require.NoError(t, err)
+
+	require.Equal(t, string(defaultConfigYAML), string(example),
+		"examples/config.yaml.example must stay in sync with internal/config/default-config.yaml")
 }
 
 func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
