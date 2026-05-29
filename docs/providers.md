@@ -173,7 +173,7 @@ ccl --provider omlx        # localhost:8000
 | Endpoint | `http://localhost:8000` (override: `OMLX_BASE_URL`) |
 | Model | `Qwen3.5-9B-MLX-4bit` (override: `OMLX_MODEL`) |
 | Small/Fast | `gemma-4-e2b-it-4bit` (override: `OMLX_SMALL_MODEL`) |
-| Auth | `OMLX_API_KEY` (defaults to a placeholder token) |
+| Auth | `OMLX_API_KEY` (optional) |
 
 `omlx` targets a local MLX-backed Anthropic-compatible server on macOS. Override the endpoint and models without editing config:
 
