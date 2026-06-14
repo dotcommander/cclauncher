@@ -23,7 +23,7 @@ func TestRunChecks(t *testing.T) {
 		wantStatus Status
 		reasonSub  string // substring required in Reason ("" to skip)
 	}{
-		{"auth fail: required no token", config.Provider{BaseURL: "https://x", Model: "m"}, "auth", StatusFail, "auth required"},
+		{"auth fail: required no token", config.Provider{BaseURL: "https://x", Model: "m"}, "auth", StatusWarn, "auth required"},
 		{"auth pass: has token", config.Provider{AuthToken: "t", BaseURL: "https://x", Model: "m"}, "auth", StatusPass, "credential present"},
 		{"auth warn: not required", config.Provider{AuthRequired: boolPtr(false), BaseURL: "https://x", Model: "m"}, "auth", StatusWarn, "authRequired: false"},
 		{"fields fail: empty baseURL", config.Provider{AuthToken: "t", Model: "m"}, "fields", StatusFail, "baseUrl"},

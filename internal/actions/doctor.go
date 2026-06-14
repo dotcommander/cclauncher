@@ -53,8 +53,8 @@ func checkAuth(name string, p config.Provider) CheckResult {
 		r.Status = StatusPass
 		r.Reason = "credential present"
 	default:
-		r.Status = StatusFail
-		r.Reason = "auth required but no token configured"
+		r.Status = StatusWarn
+		r.Reason = "auth required but no token configured — skipping (no credential)"
 	}
 	return r
 }
@@ -65,6 +65,9 @@ func checkFields(name string, p config.Provider) CheckResult {
 	case p.BaseURL == "":
 		r.Status = StatusFail
 		r.Reason = "baseUrl is empty"
+	case p.Model == "" && strings.HasPrefix(p.BaseURL, "https://api.anthropic.com"):
+		r.Status = StatusPass
+		r.Reason = "baseUrl present; model omitted (native Anthropic uses its default)"
 	case p.Model == "":
 		r.Status = StatusFail
 		r.Reason = "model is empty"

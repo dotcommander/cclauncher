@@ -62,15 +62,12 @@ func TestHandleDoctor_AllProviders(t *testing.T) {
 	assert.Contains(t, got, "beta")
 }
 
-func TestHandleDoctor_FailExitOnMissingAuth(t *testing.T) {
+func TestHandleDoctor_NoFailOnMissingAuth(t *testing.T) {
 	t.Parallel()
 	cmd, _ := newDoctorTestCmd(doctorTestConfig())
 	require.NoError(t, cmd.Flags().Set("provider", "beta")) // requires auth, no token
 	err := HandleDoctor(cmd, nil)
-	require.Error(t, err)
-	var ece *ExitCodeError
-	require.ErrorAs(t, err, &ece)
-	assert.Equal(t, 1, ece.Code)
+	require.NoError(t, err)
 }
 
 func TestHandleDoctor_JSONNoSecrets(t *testing.T) {
