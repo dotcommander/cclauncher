@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -27,7 +28,7 @@ func (f *fakeProviderSelector) SelectProvider(_ context.Context, choices []Provi
 	return f.selected, nil
 }
 
-func TestProviderNameForUse(t *testing.T) {
+func TestPickProvider(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.Config{
@@ -38,23 +39,10 @@ func TestProviderNameForUse(t *testing.T) {
 		CLI: config.CLIConfig{DefaultProvider: "zai"},
 	}
 
-	t.Run("argument bypasses selector", func(t *testing.T) {
-		t.Parallel()
-
-		selector := &fakeProviderSelector{selected: "zai"}
-		name, err := providerNameForUse(context.Background(), cfg, []string{"deepseek"}, selector)
-
-		require.NoError(t, err)
-		require.Equal(t, "deepseek", name)
-		require.Zero(t, selector.calls)
-	})
-
 	t.Run("picker receives sorted choices and current provider", func(t *testing.T) {
 		t.Parallel()
-
 		selector := &fakeProviderSelector{selected: "deepseek"}
-		name, err := providerNameForUse(context.Background(), cfg, nil, selector)
-
+		name, err := pickProvider(context.Background(), cfg, selector)
 		require.NoError(t, err)
 		require.Equal(t, "deepseek", name)
 		require.Equal(t, 1, selector.calls)
@@ -67,29 +55,28 @@ func TestProviderNameForUse(t *testing.T) {
 
 	t.Run("picker error is returned", func(t *testing.T) {
 		t.Parallel()
-
 		selector := &fakeProviderSelector{err: errors.New("selection canceled")}
-		_, err := providerNameForUse(context.Background(), cfg, nil, selector)
-
+		_, err := pickProvider(context.Background(), cfg, selector)
 		require.ErrorContains(t, err, "selection canceled")
 	})
 
 	t.Run("picker result must be configured", func(t *testing.T) {
 		t.Parallel()
-
 		selector := &fakeProviderSelector{selected: "missing"}
-		_, err := providerNameForUse(context.Background(), cfg, nil, selector)
-
+		_, err := pickProvider(context.Background(), cfg, selector)
 		require.ErrorContains(t, err, "unknown provider")
 	})
 
 	t.Run("empty config does not open picker", func(t *testing.T) {
 		t.Parallel()
-
 		selector := &fakeProviderSelector{selected: "missing"}
-		_, err := providerNameForUse(context.Background(), &config.Config{}, nil, selector)
-
+		_, err := pickProvider(context.Background(), &config.Config{}, selector)
 		require.ErrorContains(t, err, "no providers configured")
 		require.Zero(t, selector.calls)
 	})
+}
+
+func TestIsInteractive(t *testing.T) {
+	t.Parallel()
+	require.False(t, isInteractive(&bytes.Buffer{}))
 }

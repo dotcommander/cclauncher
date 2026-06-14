@@ -37,7 +37,6 @@ func TestNewRootCmd_CommandSurface(t *testing.T) {
 		"doctor",
 		"providers",
 		"update",
-		"use [provider]",
 		"version",
 	}
 	if !slices.Equal(got, want) {
@@ -63,11 +62,6 @@ func TestSubcommandFlags(t *testing.T) {
 	update := findCommand(t, cmd, "update")
 	if update.Flags().Lookup("check") == nil {
 		t.Fatal("update missing --check flag")
-	}
-
-	use := findCommand(t, cmd, "use")
-	if use.Args == nil {
-		t.Fatal("use command must validate argument count")
 	}
 }
 

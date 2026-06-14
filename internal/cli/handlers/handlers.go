@@ -33,6 +33,15 @@ func HandleCode(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if providerName == "" && isInteractive(cmd.InOrStdin()) {
+		selector := TerminalProviderSelector{In: cmd.InOrStdin(), Out: cmd.OutOrStdout()}
+		providerName, err = pickProvider(cmd.Context(), cfg, selector)
+		if err != nil {
+			return err
+		}
+	}
+
 	providerName, provider, err := resolveProvider(providerName, cfg)
 	if err != nil {
 		return err
