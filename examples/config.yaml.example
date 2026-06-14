@@ -86,6 +86,24 @@ optimization:
   maxOutputTokens: 200000
   nodeMaxOldSpaceSize: 8192   # MB for Node.js heap
 
-# Router (optional) - override model routing
+# Router (optional) — route specific request classes to different models.
+# Values use "provider:model" form; the provider must be defined above.
 # router:
-#   default: "deepseek:deepseek-v4-pro"
+#   default: "deepseek:deepseek-v4-pro"        # fallback for all requests
+#   background: "deepseek:deepseek-v4-flash"   # background / non-interactive tasks
+#   longContext: "zai:glm-4.7"                 # requests above longContextThreshold
+#   think: "deepseek:deepseek-v4-pro"          # extended-thinking requests
+#   webSearch: "zai:glm-4.7"                   # web-search requests
+#   longContextThreshold: 60000                # token count that triggers longContext
+
+# Transformer (optional, per-provider) — rewrite requests before they hit the API.
+# Attach under a provider's "transformer:" key:
+# providers:
+#   deepseek:
+#     transformer:
+#       rules:
+#         - modelPattern: "deepseek-v4-pro"    # match requests by model name
+#           setMaxTokens: 8192                 # cap output tokens
+#           setTemperature: 0.2
+#           addHeaders:
+#             X-Custom-Header: "value"
