@@ -197,10 +197,11 @@ export LLAMACPP_MODEL="local"
 ccl --provider llamacpp
 ```
 
-To make a local provider your default:
+To use a local provider, pick it from bare `ccl`, pass it explicitly, or set it as the default:
 
 ```bash
-ccl use lmstudio
+ccl --provider lmstudio
+# or set cli.defaultProvider: lmstudio in ~/.config/cclauncher/config.yaml
 ```
 
 ## Model Recommendations

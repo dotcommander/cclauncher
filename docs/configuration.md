@@ -9,8 +9,9 @@ The fastest way to configure CCL is environment variables — no config file edi
 ```bash
 export SYNTHETIC_API_KEY="sk-..."   # enables all Synthetic.new providers
 export DEEPSEEK_API_KEY="sk-..."    # enables deepseek
-ccl use deepseek                    # persist default provider
 ```
+
+Set the default provider by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 
 ## Config File Location
 
@@ -84,7 +85,7 @@ providers:
 
 # --- CLI ---------------------------------------------------------------------
 cli:
-  defaultProvider: "zai"         # Provider used when --provider is not set
+  defaultProvider: "zai"         # Picker pre-selection and non-TTY fallback
 
 # --- Optimization ------------------------------------------------------------
 optimization:
@@ -179,7 +180,7 @@ The optional `router` block can pin a model slot to a named provider. This is ra
 **Verification — the exact form `default` must take.** `router.default` is `"<provider>:<model>"`. The override applies only when all hold:
 
 - the value contains a `:` separating a non-empty provider and a non-empty model;
-- `<provider>` equals the provider CCL selected for this launch (the `--provider` flag, or `cli.defaultProvider`);
+- `<provider>` equals the provider CCL selected for this launch (`--provider`, the picker, or the non-TTY `cli.defaultProvider` fallback);
 - `<model>` is non-empty.
 
 When it applies, CCL sets both the provider's `model` and `smallFastModel` to `<model>` for that launch.

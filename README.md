@@ -31,8 +31,8 @@ just install
 ## Usage
 
 ```bash
-ccl                                  # default provider (Z.ai / GLM)
-ccl --provider deepseek              # this session only
+ccl                                  # pick a provider; pre-selects the default
+ccl --provider deepseek              # this session only; skips the picker
 ccl --provider synthetic "fix the null pointer in main.go"
 ```
 
@@ -41,7 +41,6 @@ Arguments after the provider flag pass through to `claude` unchanged.
 | Command | Description |
 |---------|-------------|
 | `ccl --provider <name>` | Select a provider for this session |
-| `ccl use <name>` | Persist a provider as the default |
 | `ccl providers` | List providers and whether each key is set |
 | `ccl update [--check]` | Update CCL |
 | `ccl version` | Print the version |
@@ -87,11 +86,9 @@ Endpoints, environment variables, and per-provider notes: [docs/providers.md](do
 
 On first run, CCL writes `~/.config/cclauncher/config.yaml` with all providers filled in. You supply the API key through an environment variable; CCL can't guess it.
 
-Set a default so you can drop the flag:
+Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects the configured default, so press Enter to launch it or pick another provider for that launch only. In pipes or CI, bare `ccl` uses the configured default without prompting.
 
-```bash
-ccl use deepseek
-```
+Set that default by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 
 Override a single key without editing the config — `CCL_<PROVIDER>_API_KEY` takes precedence:
 

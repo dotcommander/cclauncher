@@ -200,13 +200,9 @@ Switch for a single session with `--provider`:
 ccl --provider deepseek "review this PR"
 ```
 
-Persist a new default with `use`:
+Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only.
 
-```bash
-ccl use deepseek
-```
-
-`ccl use` writes `cli.defaultProvider` to `~/.config/cclauncher/config.yaml` while preserving all comments and existing values.
+Set the default provider by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`. When stdin is not a terminal, bare `ccl` uses that default without prompting.
 
 ## Environment Variable Overrides
 

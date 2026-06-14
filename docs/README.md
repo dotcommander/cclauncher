@@ -40,15 +40,15 @@ ccl --provider deepseek -p "summarize this repo"
 Only CCL's provider selector is consumed. Other flags pass through to
 `claude`.
 
-### Persist a default provider
+### Pick or set a default provider
 
 ```bash
-ccl use deepseek
-ccl "run the tests"
+ccl
 ```
 
-`ccl use` writes `cli.defaultProvider` in
-`~/.config/cclauncher/config.yaml`.
+Bare `ccl` opens the provider picker at an interactive terminal. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only. When stdin is not a terminal, bare `ccl` uses that default without prompting.
+
+Set `cli.defaultProvider` by editing `~/.config/cclauncher/config.yaml`.
 
 ### Override one API key
 
