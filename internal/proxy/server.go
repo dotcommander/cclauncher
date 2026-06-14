@@ -118,7 +118,7 @@ func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
 	copyResponseHeaders(w, resp)
 
 	if isSSE(resp) {
-		p.streamSSE(w, resp)
+		p.streamSSE(r.Context(), w, resp)
 		return
 	}
 
@@ -186,7 +186,7 @@ func isSSE(resp *http.Response) bool {
 	return strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream")
 }
 
-func (p *Proxy) streamSSE(w http.ResponseWriter, resp *http.Response) {
+func (p *Proxy) streamSSE(ctx context.Context, w http.ResponseWriter, resp *http.Response) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		slog.Error("response writer does not support flushing")
@@ -199,6 +199,13 @@ func (p *Proxy) streamSSE(w http.ResponseWriter, resp *http.Response) {
 
 	buf := make([]byte, 4096)
 	for {
+		// Stop promptly when the downstream client disconnects or the proxy is
+		// shutting down, instead of draining the full upstream response.
+		if err := ctx.Err(); err != nil {
+			slog.Info("SSE stream canceled by client", "error", err)
+			return
+		}
+
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
@@ -211,6 +218,12 @@ func (p *Proxy) streamSSE(w http.ResponseWriter, resp *http.Response) {
 			return
 		}
 		if err != nil {
+			// A canceled request context surfaces here as a read error; log it
+			// as cancellation rather than a stream fault.
+			if ctx.Err() != nil {
+				slog.Info("SSE stream canceled by client", "error", ctx.Err())
+				return
+			}
 			slog.Error("read SSE stream", "error", err)
 			return
 		}
