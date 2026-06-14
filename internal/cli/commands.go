@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/charmbracelet/fang"
 	"github.com/dotcommander/cclauncher/internal/cli/handlers"
 	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/spf13/cobra"
@@ -10,7 +12,7 @@ import (
 
 // Execute runs the root command.
 func Execute() error {
-	return newRootCmd().Execute()
+	return fang.Execute(context.Background(), newRootCmd())
 }
 
 // newRootCmd builds the root command tree.
@@ -22,7 +24,7 @@ func newRootCmd() *cobra.Command {
 		Short: "Launch Claude Code with different LLM providers",
 		Long: "Launch Claude Code with different LLM providers.\n\n" +
 			"All flags except --provider are passed through to Claude Code.\n" +
-			"Use --provider to select an LLM provider (or set a default via 'ccl use').",
+			"Use --provider to select an LLM provider, or run bare 'ccl' to pick interactively.",
 		Example: `  ccl                                  # Launch with default provider
   ccl --provider deepseek              # Launch with specific provider
   ccl --provider deepseek -p "hello"   # Provider + claude print mode
@@ -35,11 +37,12 @@ func newRootCmd() *cobra.Command {
 		RunE:               handlers.HandleCode,
 	}
 
+	root.CompletionOptions.HiddenDefaultCmd = true
+
 	root.AddCommand(
 		newVersionCmd(),
 		newUpdateCmd(),
 		newProvidersCmd(),
-		newUseCmd(),
 		newDoctorCmd(),
 	)
 	return root
@@ -114,15 +117,4 @@ func newUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().Bool("check", false, "Check for updates without installing")
 	return cmd
-}
-
-func newUseCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "use [provider]",
-		Short:   "Set the default provider",
-		Long:    "Set default provider. No argument opens picker.",
-		Example: "  ccl use\n  ccl use <provider>\n\n  Run 'ccl providers' to list available providers.",
-		Args:    cobra.MaximumNArgs(1),
-		RunE:    handlers.HandleUse,
-	}
 }
