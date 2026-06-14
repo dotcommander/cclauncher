@@ -40,6 +40,7 @@ func newRootCmd() *cobra.Command {
 		newUpdateCmd(),
 		newProvidersCmd(),
 		newUseCmd(),
+		newDoctorCmd(),
 	)
 	return root
 }
@@ -71,6 +72,23 @@ func newProvidersCmd() *cobra.Command {
 	}
 }
 
+func newDoctorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Run preflight diagnostics on configured providers",
+		Long: "Run local preflight diagnostics (auth, required fields, baseUrl lint) " +
+			"against every configured provider, or a single one with --provider.\n\n" +
+			"Exits non-zero if any check FAILs. Use --check-net to also probe reachability.",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE:         handlers.HandleDoctor,
+	}
+	cmd.Flags().String("provider", "", "Check only this provider")
+	cmd.Flags().Bool("json", false, "Emit results as JSON")
+	cmd.Flags().Bool("check-net", false, "Probe provider reachability over the network")
+	return cmd
+}
+
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
@@ -100,11 +118,11 @@ func newUpdateCmd() *cobra.Command {
 
 func newUseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "use <provider>",
+		Use:     "use [provider]",
 		Short:   "Set the default provider",
-		Long:    "Set the default LLM provider. This persists to config.yaml.",
-		Example: "  ccl use <provider>\n\n  Run 'ccl providers' to list available providers.",
-		Args:    cobra.ExactArgs(1),
+		Long:    "Set default provider. No argument opens picker.",
+		Example: "  ccl use\n  ccl use <provider>\n\n  Run 'ccl providers' to list available providers.",
+		Args:    cobra.MaximumNArgs(1),
 		RunE:    handlers.HandleUse,
 	}
 }
