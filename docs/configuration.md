@@ -143,9 +143,10 @@ The optional `router` block lets you pin specific model slots to named providers
 
 ```yaml
 # router:
-#   default: "deepseek:deepseek-chat"
-#   background: "synthetic:hf:zai-org/GLM-4.7"
+#   default: "deepseek:deepseek-v4-pro"
+#   background: "deepseek:deepseek-v4-flash"
 #   longContext: "openrouter:deepseek/deepseek-v3.2"
 #   think: "openrouter:anthropic/claude-sonnet-4.5"
-#   longContextThreshold: 50000
+#   webSearch: "zai:glm-4.7"
+#   longContextThreshold: 60000
 ```
