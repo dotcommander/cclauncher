@@ -86,6 +86,17 @@ optimization:
   maxOutputTokens: 200000
   nodeMaxOldSpaceSize: 8192   # MB for Node.js heap
 
-# Router (optional) - override model routing
+# Router (optional) - override model routing.
+# CONTRACT: only `default` is honored at runtime (it overrides the selected
+# provider's model + smallFastModel). Format: "<provider>:<model>" where
+# <provider> must match the provider you launch with. It is silently ignored
+# if there is no ":", the provider segment doesn't match, or the model is empty.
+# The slots below `default` are parsed but currently inert (no effect).
 # router:
 #   default: "deepseek:deepseek-v4-pro"
+#   # Reserved — parsed but not yet consumed:
+#   # background: "deepseek:deepseek-v4-flash"
+#   # longContext: "openrouter:deepseek/deepseek-v3.2"
+#   # think: "openrouter:anthropic/claude-sonnet-4.5"
+#   # webSearch: "zai:glm-4.7"
+#   # longContextThreshold: 60000
