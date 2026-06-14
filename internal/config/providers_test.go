@@ -235,6 +235,55 @@ func TestApplyDefaults(t *testing.T) {
 	assert.Equal(t, 200000, cfg.Optimization.MaxOutputTokens)
 }
 
+func TestApplyOptDefaults_PreservesExplicitBooleansAndFillsNumericZeros(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		Optimization: OptimizationConfig{
+			DisableTelemetry: true,
+			APITimeoutMs:     42,
+		},
+	}
+
+	applyOptDefaults(cfg)
+
+	assert.False(t, cfg.Optimization.DisableNonessentialTraffic)
+	assert.False(t, cfg.Optimization.DisableAutoupdater)
+	assert.True(t, cfg.Optimization.DisableTelemetry)
+	assert.False(t, cfg.Optimization.DisableErrorReporting)
+	assert.False(t, cfg.Optimization.DisableCostWarnings)
+	assert.Equal(t, 42, cfg.Optimization.APITimeoutMs)
+	assert.Equal(t, 200000, cfg.Optimization.MaxOutputTokens)
+	assert.Equal(t, 8192, cfg.Optimization.NodeMaxOldSpaceSize)
+}
+
+func TestMergeDefaultProviders_PreservesUserProviderFields(t *testing.T) {
+	t.Parallel()
+
+	authRequired := false
+	cfg := &Config{
+		Providers: map[string]Provider{
+			"deepseek": {
+				BaseURL:        "https://custom.example.com/anthropic",
+				AuthToken:      "custom-token",
+				AuthRequired:   &authRequired,
+				Model:          "custom-model",
+				SmallFastModel: "custom-small",
+			},
+		},
+	}
+
+	mergeDefaultProviders(cfg)
+
+	deepseek := cfg.Providers["deepseek"]
+	assert.Equal(t, "https://custom.example.com/anthropic", deepseek.BaseURL)
+	assert.Equal(t, "custom-token", deepseek.AuthToken)
+	assert.Equal(t, "custom-model", deepseek.Model)
+	assert.Equal(t, "custom-small", deepseek.SmallFastModel)
+	assert.False(t, deepseek.RequiresAuth())
+	assert.Contains(t, cfg.Providers, "claude")
+}
+
 func TestOverrideFromEnv(t *testing.T) {
 	t.Setenv("CCL_TESTPROVIDER_API_KEY", "test-key-from-env")
 
@@ -248,6 +297,20 @@ func TestOverrideFromEnv(t *testing.T) {
 
 	provider := cfg.Providers["testprovider"]
 	assert.Equal(t, "test-key-from-env", provider.APIKey)
+}
+
+func TestOverrideFromEnv_DoesNotClearExistingAPIKeyWhenEnvEmpty(t *testing.T) {
+	t.Setenv("CCL_TESTPROVIDER_API_KEY", "")
+
+	cfg := &Config{
+		Providers: map[string]Provider{
+			"testprovider": {APIKey: "configured-key"},
+		},
+	}
+
+	overrideFromEnv(cfg)
+
+	assert.Equal(t, "configured-key", cfg.Providers["testprovider"].APIKey)
 }
 
 func TestInterpolateProviderFields(t *testing.T) {

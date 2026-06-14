@@ -53,10 +53,11 @@ func HandleDoctor(cmd *cobra.Command, _ []string) error {
 	}
 
 	if jsonOut {
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(results)
-	}
-	if err := writeDoctorTable(cmd.OutOrStdout(), results); err != nil {
-		return err
+		if err := json.NewEncoder(cmd.OutOrStdout()).Encode(results); err != nil {
+			return err
+		}
+	} else {
+		writeDoctorTable(cmd.OutOrStdout(), results)
 	}
 	if anyFail(results) {
 		return &ExitCodeError{Code: 1, Msg: "one or more providers failed preflight checks"}
