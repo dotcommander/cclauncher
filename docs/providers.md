@@ -2,6 +2,14 @@
 
 CCL ships with 11 pre-configured providers across three categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
+```bash
+ccl providers
+```
+
+Use the command above to see the providers and models loaded from your current
+`~/.config/cclauncher/config.yaml`. The tables below describe the committed
+defaults in `internal/config/default-config.yaml`.
+
 ## Cloud (Native APIs)
 
 These providers use their own API endpoints and require separate keys.

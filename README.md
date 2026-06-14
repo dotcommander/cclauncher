@@ -55,6 +55,8 @@ ccl -p "fix this bug"               # error: "fix this bug" is not a provider
 
 Use the long form `--provider` to avoid ambiguity.
 
+For the full docs index, see [docs/README.md](docs/README.md).
+
 ## Providers
 
 CCL ships with eleven providers in three categories. They're pre-configured; you only supply the key.

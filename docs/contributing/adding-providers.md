@@ -63,6 +63,21 @@ myprovider:
         setModel: "actual-model-id"
 ```
 
+You can also opt into a built-in preset with `transformer.use`:
+
+```yaml
+myprovider:
+  baseUrl: "https://api.myprovider.com"
+  authToken: "${MYPROVIDER_API_KEY}"
+  model: "model-name"
+  transformer:
+    use:
+      - clamp-max-tokens-8192
+```
+
+Preset rules run before inline `transformer.rules`. Unknown preset names fail
+config loading; they are not ignored. See [../configuration.md](../configuration.md#transformer-presets-advanced) for the preset list and acceptance checklist.
+
 ## Adding to the Default Config
 
 To include a provider in the config template shipped with CCL (so new users get it on first run), edit `internal/config/default-config.yaml` and open a pull request.
