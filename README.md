@@ -1,8 +1,8 @@
 # CCL — Claude Code Launcher
 
-Here's the thing nobody tells you about Claude Code: it doesn't actually care who's on the other end of the wire.
+Claude Code doesn't care who's on the other end of the wire. It speaks the Anthropic Messages API and nothing more. So if some *other* model — DeepSeek, GLM, something running on your own laptop — also speaks that dialect, Claude Code will talk to it and never know the difference.
 
-It speaks the Anthropic Messages API. That's it. So if some *other* model — DeepSeek, GLM, a model running on your own laptop — also speaks that same dialect, Claude Code will happily talk to it and never know the difference. The only thing standing between you and "Claude Code, but powered by DeepSeek" is a few environment variables pointing at a different address.
+The only thing standing between you and "Claude Code, but powered by DeepSeek" is a few environment variables pointing at a different address.
 
 You *could* set those by hand every time:
 
