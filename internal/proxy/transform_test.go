@@ -165,3 +165,23 @@ func TestApplyRules(t *testing.T) {
 		require.Equal(t, string(body), string(out))
 	})
 }
+
+func TestApplyRules_TransformerUsePresetRulesMutateRequest(t *testing.T) {
+	t.Parallel()
+
+	transformer, err := config.ResolveTransformerPresets(config.TransformerConfig{
+		Use: []string{"clamp-max-tokens-8192"},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, transformer.Rules)
+
+	body := []byte(`{"model":"custom-model","max_tokens":20000}`)
+	out, headers, err := ApplyRules(transformer.Rules, body)
+
+	require.NoError(t, err)
+	require.Empty(t, headers)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(out, &parsed))
+	require.EqualValues(t, 8192, parsed["max_tokens"])
+}

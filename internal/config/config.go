@@ -217,6 +217,9 @@ func (l *Loader) Load() (*Config, error) {
 	mergeDefaultProviders(&cfg)
 	interpolateProviderFields(&cfg)
 	overrideFromEnv(&cfg)
+	if err := resolveTransformerPresets(&cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
 }
