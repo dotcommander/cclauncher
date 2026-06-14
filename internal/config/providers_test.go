@@ -94,7 +94,7 @@ func TestGetProvider_Models(t *testing.T) {
 	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.SmallFastModel)
 
 	openrouter, _ := GetProvider(cfg, "openrouter")
-	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.Model)
+	assert.Equal(t, "deepseek/deepseek-v4-pro", openrouter.Model)
 	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.SmallFastModel)
 }
 

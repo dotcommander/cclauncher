@@ -31,13 +31,13 @@ providers:
     authRequired: true
     baseUrl: "https://api.z.ai/api/anthropic"
     authToken: "${ZAI_API_KEY}"
-    model: "${ZAI_MODEL:-glm-4.7}"
+    model: "${ZAI_MODEL:-glm-5.2}"
     smallFastModel: "${ZAI_SMALL_MODEL:-glm-4.5-air}"
   openrouter:
     authRequired: true
     baseUrl: "https://openrouter.ai/api"
     authToken: "${OPENROUTER_API_KEY}"
-    model: "deepseek/deepseek-v3.2"
+    model: "deepseek/deepseek-v4-pro"
     smallFastModel: "deepseek/deepseek-v3.2"
   wafer:
     authRequired: true
