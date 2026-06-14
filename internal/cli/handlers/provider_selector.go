@@ -5,9 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
+
+	lipgloss "charm.land/lipgloss/v2"
+	"github.com/dotcommander/cclauncher/internal/config"
 )
 
 // ProviderChoice is one selectable provider row.
@@ -54,22 +59,32 @@ func (s TerminalProviderSelector) SelectProvider(ctx context.Context, choices []
 		}
 	}
 
-	if _, err := fmt.Fprintln(out, "Select provider:"); err != nil {
+	w := profileWriter(out)
+	numStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	modelStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	currentStyle := lipgloss.NewStyle().Foreground(colorPass).Bold(true)
+	if _, err := fmt.Fprintln(w, lipgloss.NewStyle().Bold(true).Foreground(colorHeader).Render("Select provider:")); err != nil {
 		return "", fmt.Errorf("write provider prompt: %w", err)
 	}
 	for i, choice := range choices {
-		label := choice.Name
+		pointer := " "
+		nameStyle := lipgloss.NewStyle()
+		if choice.Name == current {
+			pointer = currentStyle.Render("▸")
+			nameStyle = nameStyle.Bold(true).Foreground(colorPass)
+		}
+		line := fmt.Sprintf("%s %s %s", pointer, numStyle.Render(fmt.Sprintf("%d.", i+1)), nameStyle.Render(choice.Name))
 		if choice.Model != "" {
-			label = fmt.Sprintf("%s (%s)", choice.Name, choice.Model)
+			line += " " + modelStyle.Render("("+choice.Model+")")
 		}
 		if choice.Name == current {
-			label = fmt.Sprintf("%s [current]", label)
+			line += " " + currentStyle.Render("[current]")
 		}
-		if _, err := fmt.Fprintf(out, "  %d. %s\n", i+1, label); err != nil {
+		if _, err := fmt.Fprintln(w, line); err != nil {
 			return "", fmt.Errorf("write provider prompt: %w", err)
 		}
 	}
-	if _, err := fmt.Fprintf(out, "Provider [%d]: ", defaultIndex+1); err != nil {
+	if _, err := fmt.Fprintf(w, "%s ", lipgloss.NewStyle().Foreground(colorHeader).Render(fmt.Sprintf("Provider [%d]:", defaultIndex+1))); err != nil {
 		return "", fmt.Errorf("write provider prompt: %w", err)
 	}
 
@@ -90,4 +105,52 @@ func (s TerminalProviderSelector) SelectProvider(ctx context.Context, choices []
 		return "", fmt.Errorf("invalid provider selection %q", line)
 	}
 	return choices[idx-1].Name, nil
+}
+
+// isInteractive reports whether in is a terminal (character device). The picker
+// only opens for a human at a TTY; piped/CI stdin falls back to the default.
+func isInteractive(in io.Reader) bool {
+	f, ok := in.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+// pickProvider opens the interactive picker, pre-selecting the current default
+// so Enter relaunches it. The choice is used for this launch only; nothing is
+// persisted.
+func pickProvider(ctx context.Context, cfg *config.Config, selector ProviderSelector) (string, error) {
+	choices := providerChoices(cfg)
+	if len(choices) == 0 {
+		return "", fmt.Errorf("no providers configured")
+	}
+	if selector == nil {
+		return "", fmt.Errorf("provider selector is not configured")
+	}
+	name, err := selector.SelectProvider(ctx, choices, cfg.CLI.DefaultProvider)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := cfg.Providers[name]; !ok {
+		return "", unknownProviderError(name)
+	}
+	return name, nil
+}
+
+// providerChoices returns the configured providers as sorted selectable rows.
+func providerChoices(cfg *config.Config) []ProviderChoice {
+	names := slices.Sorted(maps.Keys(cfg.Providers))
+	choices := make([]ProviderChoice, 0, len(names))
+	for _, name := range names {
+		choices = append(choices, ProviderChoice{
+			Name:  name,
+			Model: cfg.Providers[name].Model,
+		})
+	}
+	return choices
 }

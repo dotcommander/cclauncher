@@ -34,11 +34,16 @@ func newTable() *table.Table {
 		BorderStyle(styleBorder)
 }
 
-// renderStyled writes s to out followed by a newline, downsampling/stripping
-// ANSI to match the real stdout's color profile (plain when stdout is not a TTY).
-func renderStyled(out io.Writer, s string) error {
+// profileWriter wraps out so emitted ANSI matches the real stdout's color
+// profile (plain when stdout is not a TTY: pipes, CI, captured test buffers).
+func profileWriter(out io.Writer) *colorprofile.Writer {
 	w := colorprofile.NewWriter(out, os.Environ())
 	w.Profile = colorprofile.Detect(os.Stdout, os.Environ())
-	_, err := fmt.Fprintln(w, s)
+	return w
+}
+
+// renderStyled writes s to out followed by a newline, via profileWriter.
+func renderStyled(out io.Writer, s string) error {
+	_, err := fmt.Fprintln(profileWriter(out), s)
 	return err
 }
