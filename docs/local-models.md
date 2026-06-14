@@ -1,6 +1,6 @@
 # Local Models
 
-CCL supports three local inference servers: LlamaBarn, LM Studio, and llama.cpp. All three expose an API that Claude Code can reach directly — no internet connection needed for inference.
+CCL supports four local inference servers: LlamaBarn, LM Studio, llama.cpp, and omlx. All expose an API that Claude Code can reach directly — no internet connection needed for inference.
 
 > **Tip:** Claude Code is tool-heavy. It sends many small requests and expects fast responses. For agentic tasks, use a model of at least 30B parameters with strong instruction-following: Qwen3-Coder, Kimi-K2, MiniMax-M2, or a similarly capable coder/instruct model.
 
@@ -150,6 +150,38 @@ providers:
     authToken: "${LLAMABARN_API_KEY}"
     model: "${LLAMABARN_MODEL:-local}"
     smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
+```
+
+## omlx
+
+`omlx` targets a local MLX-backed Anthropic-compatible server on macOS (Apple Silicon).
+
+### Launch Claude Code
+
+```bash
+ccl --provider omlx
+```
+
+By default CCL connects to `http://localhost:8000` with primary model `Qwen3.5-9B-MLX-4bit` and small/fast model `gemma-4-e2b-it-4bit`.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OMLX_BASE_URL` | `http://localhost:8000` | Server address |
+| `OMLX_MODEL` | `Qwen3.5-9B-MLX-4bit` | Primary model |
+| `OMLX_SMALL_MODEL` | `gemma-4-e2b-it-4bit` | Background/subagent model |
+| `OMLX_API_KEY` | *(empty)* | API key if your server requires one |
+
+### Config override
+
+```yaml
+providers:
+  omlx:
+    baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
+    authRequired: false
+    model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"
+    smallFastModel: "${OMLX_SMALL_MODEL:-gemma-4-e2b-it-4bit}"
 ```
 
 ## Switching Servers Mid-Session
