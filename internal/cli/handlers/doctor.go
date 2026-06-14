@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"maps"
 	"net/http"
 	"slices"
 
+	lipgloss "charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/dotcommander/cclauncher/internal/actions"
 	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/spf13/cobra"
@@ -79,16 +80,30 @@ func selectProviders(flag string, cfg *config.Config) ([]string, error) {
 }
 
 func writeDoctorTable(out io.Writer, results []actions.CheckResult) error {
-	const format = "%-16s %-8s %-6s %s\n"
-	if _, err := fmt.Fprintf(out, format, "PROVIDER", "CHECK", "STATUS", "REASON"); err != nil {
-		return err
-	}
+	const statusCol = 2
+	t := newTable().
+		Headers("PROVIDER", "CHECK", "STATUS", "REASON").
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return styleHeader
+			}
+			style := styleCell
+			if col == statusCol && row >= 0 && row < len(results) {
+				switch results[row].Status {
+				case actions.StatusPass:
+					style = style.Foreground(colorPass)
+				case actions.StatusWarn:
+					style = style.Foreground(colorWarn)
+				case actions.StatusFail:
+					style = style.Foreground(colorFail).Bold(true)
+				}
+			}
+			return style
+		})
 	for _, r := range results {
-		if _, err := fmt.Fprintf(out, format, r.Provider, r.Check, string(r.Status), r.Reason); err != nil {
-			return err
-		}
+		t.Row(r.Provider, r.Check, string(r.Status), r.Reason)
 	}
-	return nil
+	return renderStyled(out, t.Render())
 }
 
 func anyFail(results []actions.CheckResult) bool {
