@@ -111,7 +111,7 @@ just lint       # golangci-lint
 just dev        # go run, no build
 ```
 
-Providers are defined in YAML, not Go. To add one, add a block to `internal/config/default-config.yaml`; CCL sets its env vars generically. See [CLAUDE.md](CLAUDE.md).
+Providers are defined in YAML, not Go. To add one, add a block to `internal/config/default-config.yaml`; CCL sets its env vars generically. See [docs/providers.md](docs/providers.md).
 
 ## License
 
