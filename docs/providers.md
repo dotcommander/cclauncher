@@ -8,7 +8,8 @@ ccl providers
 
 Use the command above to see the providers and models loaded from your current
 `~/.config/cclauncher/config.yaml`. The tables below describe the committed
-defaults in `internal/config/default-config.yaml`.
+defaults in `internal/config/default-config.yaml`; `examples/config.yaml.example`
+is generated from that same canonical file.
 
 ## Cloud (Native APIs)
 

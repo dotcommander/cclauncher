@@ -80,7 +80,13 @@ config loading; they are not ignored. See [../configuration.md](../configuration
 
 ## Adding to the Default Config
 
-To include a provider in the config template shipped with CCL (so new users get it on first run), edit `internal/config/default-config.yaml` and open a pull request.
+To include a provider in the config template shipped with CCL (so new users get it on first run), edit `internal/config/default-config.yaml`, then regenerate the committed examples:
+
+```bash
+go run ./internal/tools/gen-config-examples
+```
+
+Open a pull request with the canonical config and generated example changes together.
 
 ## Authentication
 

@@ -58,6 +58,16 @@ The format is `CCL_` + provider name in uppercase + `_API_KEY`.
 
 ## Full YAML Schema
 
+The committed sample at `examples/config.yaml.example` is generated from
+`internal/config/default-config.yaml`, the same default config embedded into the
+binary for first-run setup. Regenerate it with:
+
+```bash
+go run ./internal/tools/gen-config-examples
+```
+
+The shape is:
+
 ```yaml
 # ~/.config/cclauncher/config.yaml
 
