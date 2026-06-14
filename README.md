@@ -1,46 +1,26 @@
 # CCL — Claude Code Launcher
 
-Claude Code doesn't care who's on the other end of the wire. It speaks the Anthropic Messages API and nothing more. So if some *other* model — DeepSeek, GLM, something running on your own laptop — also speaks that dialect, Claude Code will talk to it and never know the difference.
+CCL runs Claude Code against a different model provider — DeepSeek, GLM, a local model, whatever — without you editing config or exporting environment variables by hand.
 
-The only thing standing between you and "Claude Code, but powered by DeepSeek" is a few environment variables pointing at a different address.
+It works because Claude Code only speaks the Anthropic Messages API. Any provider that also speaks that API will work with Claude Code; the model just needs to be reachable at the right URL with the right key. CCL knows those URLs and keys, sets them, and launches `claude`.
 
-You *could* set those by hand every time:
+## How it works
 
-```bash
-export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
-export ANTHROPIC_AUTH_TOKEN="sk-..."
-export ANTHROPIC_MODEL="deepseek-v4-pro"
-# ...and a few more, every single time, getting one wrong eventually
-claude
-```
+`ccl --provider deepseek` does three things:
 
-That's tedious, and tedious is where bugs live. So CCL does it for you:
+1. Reads the `deepseek` entry from your config — base URL, API key, model name.
+2. Sets the `ANTHROPIC_*` environment variables to match, and removes any pre-existing `ANTHROPIC_*` / `CLAUDE_CODE_*` variables from the environment so they can't leak through.
+3. Replaces itself with `claude` via `syscall.Exec`.
 
-```bash
-ccl --provider deepseek
-```
+There's no proxy or translation layer in the request path — CCL exits the moment `claude` starts, and the process you're left talking to *is* Claude Code, configured. (Transformer rules for non-Anthropic-shaped APIs exist but are opt-in; nothing runs between you and the model unless you set them up.)
 
-That's the whole idea. Now let me show you what's actually happening underneath, because it's prettier than you'd expect.
-
-## What CCL really does
-
-When you run `ccl --provider deepseek`, it does three things and then *gets out of the way*:
-
-1. Looks up `deepseek` in a config file and grabs the base URL, your API key, and the model name.
-2. Sets the `ANTHROPIC_*` environment variables to those values — and scrubs any stale `ANTHROPIC_*` / `CLAUDE_CODE_*` vars hanging around in your shell, so nothing leaks through to confuse things.
-3. Calls `syscall.Exec` to replace itself with `claude`.
-
-That third step is the good part. CCL doesn't *wrap* Claude Code. It doesn't sit in the middle proxying your traffic, translating requests, slowing things down. It hands the steering wheel to `claude` and vanishes — the running process *becomes* Claude Code, with the dials already set. There's no daemon, no proxy, no translation layer. Just an environment, prepared, and then a clean handoff.
-
-(If you do want a translation layer for an API that *isn't* Anthropic-shaped, CCL can wire up transformer rules — but you have to ask for it. By default, nothing runs between you and the model.)
-
-## Installation
+## Install
 
 ```bash
 go install github.com/dotcommander/cclauncher/cmd/ccl@latest
 ```
 
-Make sure `~/go/bin` is on your `PATH`. Or build from source:
+`~/go/bin` must be on your `PATH`. From source:
 
 ```bash
 git clone https://github.com/dotcommander/cclauncher
@@ -48,97 +28,90 @@ cd cclauncher
 just install
 ```
 
-## Using it
+## Usage
 
 ```bash
 ccl                                  # default provider (Z.ai / GLM)
-ccl --provider deepseek              # pick one for this session
+ccl --provider deepseek              # this session only
 ccl --provider synthetic "fix the null pointer in main.go"
 ```
 
-Anything you put *after* the provider flag is passed straight through to `claude`, untouched. CCL reads the first flag, then steps aside.
+Arguments after the provider flag pass through to `claude` unchanged.
 
-A handful of small commands round it out:
-
-| Command | What it does |
-|---------|--------------|
-| `ccl use deepseek` | Make a provider your permanent default |
-| `ccl providers` | List every provider and whether its key is set |
-| `ccl update` | Pull the latest CCL |
+| Command | Description |
+|---------|-------------|
+| `ccl --provider <name>` | Select a provider for this session |
+| `ccl use <name>` | Persist a provider as the default |
+| `ccl providers` | List providers and whether each key is set |
+| `ccl update [--check]` | Update CCL |
 | `ccl version` | Print the version |
 
-### One sharp edge worth knowing
-
-The flag `-p` is doing double duty, and that occasionally bites people. CCL uses `-p` for *provider*. Claude Code uses `-p` for *print mode*. CCL's rule: the **first** `-p`/`--provider` belongs to CCL; everything after it belongs to `claude`.
+**Note on `-p`:** CCL uses `-p` for `--provider`; Claude Code uses `-p` for print mode. The first `-p`/`--provider` goes to CCL, everything after passes through to `claude`.
 
 ```bash
-ccl -p deepseek -p "fix this bug"   # provider = deepseek, claude runs print mode. Works.
-ccl -p "fix this bug"               # ERROR — "fix this bug" isn't a provider name
+ccl -p deepseek -p "fix this bug"   # provider=deepseek, claude in print mode
+ccl -p "fix this bug"               # error: "fix this bug" is not a provider
 ```
 
-When in doubt, spell out `--provider`. No ambiguity, no surprises.
+Use the long form `--provider` to avoid ambiguity.
 
-## The providers
+## Providers
 
-CCL ships knowing about eleven providers in three flavors. You don't configure them — they're already there. You just supply the key.
+CCL ships with eleven providers in three categories. They're pre-configured; you only supply the key.
 
-**Cloud models** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`, `wafer`. Each wants one environment variable:
+**Cloud** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`, `wafer`. Each reads one environment variable:
 
 ```bash
 export DEEPSEEK_API_KEY="sk-..."
 ccl --provider deepseek
 
 export OPENROUTER_API_KEY="sk-or-..."
-ccl --provider openrouter        # gives you any OpenRouter model in an Anthropic skin
+ccl --provider openrouter
 ```
 
-**Local models** — `llamabarn`, `lmstudio`, `llamacpp`, `omlx`. No key, no cloud, no bill. You run the model server on your own machine and point CCL at `localhost`:
+**Local** — `llamabarn`, `lmstudio`, `llamacpp`, `omlx`. No key; the model server runs on your machine and CCL points at `localhost`:
 
 ```bash
 ccl --provider lmstudio          # LM Studio, localhost:1234
-ccl --provider llamacpp          # llama.cpp server, localhost:8080
+ccl --provider llamacpp          # llama.cpp, localhost:8080
 ccl --provider llamabarn         # LlamaBarn, localhost:2276
 ```
 
-**Real Anthropic** — `claude`. The genuine article. Auth is handled by the `claude` CLI's own OAuth, so there's nothing for you to set.
+**Anthropic** — `claude`. Auth is handled by the `claude` CLI's own OAuth; nothing to set.
 
-Full details — endpoints, env vars, the per-provider quirks — live in [docs/providers.md](docs/providers.md).
+Endpoints, environment variables, and per-provider notes: [docs/providers.md](docs/providers.md).
 
 ## Configuration
 
-On its first run, CCL writes `~/.config/cclauncher/config.yaml` with every provider already filled in. Open it if you're curious; you mostly won't need to. The one thing it can't guess is your API key, so you hand that over through an environment variable.
+On first run, CCL writes `~/.config/cclauncher/config.yaml` with all providers filled in. You supply the API key through an environment variable; CCL can't guess it.
 
-If you'd rather not type `--provider` every time:
+Set a default so you can drop the flag:
 
 ```bash
 ccl use deepseek
 ```
 
-Now plain `ccl` launches DeepSeek until you change your mind.
-
-Want to override a single key without touching anything? There's an env var for that, shaped `CCL_<PROVIDER>_API_KEY`:
+Override a single key without editing the config — `CCL_<PROVIDER>_API_KEY` takes precedence:
 
 ```bash
-export CCL_DEEPSEEK_API_KEY="sk-..."   # wins over whatever's in the config file
+export CCL_DEEPSEEK_API_KEY="sk-..."
 ```
 
-The config schema and interpolation rules are in [docs/configuration.md](docs/configuration.md); local model setup is in [docs/local-models.md](docs/local-models.md).
+If you select a provider whose key is missing, CCL stops before launching and tells you which variable to set, rather than producing a 401 mid-session.
 
-## One nicety: it checks before it leaps
+Config schema and interpolation rules: [docs/configuration.md](docs/configuration.md). Local model setup: [docs/local-models.md](docs/local-models.md).
 
-If you pick a provider but forgot to set its key, CCL stops you *before* launching, with a message that tells you exactly which variable to set — instead of letting you discover the problem as a cryptic 401 three messages into a conversation. Small thing. Saves real annoyance.
-
-## Hacking on CCL
+## Development
 
 ```bash
 just build      # build ./ccl
 just install    # build + symlink to ~/go/bin/ccl
-just test       # run the tests
+just test       # run tests
 just lint       # golangci-lint
 just dev        # go run, no build
 ```
 
-Adding a new provider takes zero Go code — providers are just YAML. Add a block to `internal/config/default-config.yaml`, and CCL sets the right env vars for it generically. The recipe is in [CLAUDE.md](CLAUDE.md).
+Providers are defined in YAML, not Go. To add one, add a block to `internal/config/default-config.yaml`; CCL sets its env vars generically. See [CLAUDE.md](CLAUDE.md).
 
 ## License
 
