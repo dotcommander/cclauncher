@@ -103,7 +103,9 @@ See [../configuration.md](../configuration.md) for the full auth priority refere
 ## Verification
 
 ```bash
-just install
+go build -o ccl ./cmd/ccl
+mkdir -p "$(go env GOPATH)/bin"
+ln -sf "$(pwd)/ccl" "$(go env GOPATH)/bin/ccl"
 ccl providers              # Verify the provider appears in the list
 ccl --provider myprovider  # Test launch
 ```

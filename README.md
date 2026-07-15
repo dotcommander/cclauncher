@@ -25,7 +25,9 @@ go install github.com/dotcommander/cclauncher/cmd/ccl@latest
 ```bash
 git clone https://github.com/dotcommander/cclauncher
 cd cclauncher
-just install
+go build -o ccl ./cmd/ccl
+mkdir -p "$(go env GOPATH)/bin"
+ln -sf "$(pwd)/ccl" "$(go env GOPATH)/bin/ccl"
 ```
 
 ## Usage
@@ -42,6 +44,7 @@ Arguments after the provider flag pass through to `claude` unchanged.
 |---------|-------------|
 | `ccl --provider <name>` | Select a provider for this session |
 | `ccl providers` | List providers and whether each key is set |
+| `ccl doctor [--provider <name>] [--json] [--check-net]` | Check provider configuration and optional reachability |
 | `ccl update [--check]` | Update CCL |
 | `ccl version` | Print the version |
 
@@ -100,14 +103,27 @@ If you select a provider whose key is missing, CCL stops before launching and te
 
 Config schema and interpolation rules: [docs/configuration.md](docs/configuration.md). Local model setup: [docs/local-models.md](docs/local-models.md).
 
+## Check your setup
+
+```bash
+ccl doctor                         # check every configured provider
+ccl doctor --provider deepseek     # check one provider
+ccl doctor --json                  # emit machine-readable results
+ccl doctor --check-net             # also probe provider reachability
+```
+
+`ccl doctor` checks credentials, required fields, and base URLs without making
+network requests. Add `--check-net` when you also want reachability probes.
+Missing optional credentials are warnings; invalid required configuration exits
+non-zero.
+
 ## Development
 
 ```bash
-just build      # build ./ccl
-just install    # build + symlink to ~/go/bin/ccl
-just test       # run tests
-just lint       # golangci-lint
-just dev        # go run, no build
+go build ./...
+go test ./...
+go vet ./...
+go run ./cmd/ccl --help
 ```
 
 Providers are defined in YAML, not Go. To add one, update `internal/config/default-config.yaml`, then run `go run ./internal/tools/gen-config-examples` so committed examples stay generated from the canonical default config. CCL sets provider env vars generically. See [docs/providers.md](docs/providers.md).

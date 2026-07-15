@@ -31,6 +31,18 @@ The table comes from `~/.config/cclauncher/config.yaml` after environment
 variable interpolation and CCL's default-provider merge. It may show different
 models than the committed defaults if you already customized your local config.
 
+### Check provider configuration
+
+```bash
+ccl doctor
+ccl doctor --provider deepseek
+ccl doctor --json
+ccl doctor --check-net
+```
+
+The default checks are local. `--check-net` also probes provider reachability.
+Use `--json` for scripts and CI.
+
 ### Switch for one run
 
 ```bash
@@ -63,10 +75,12 @@ without editing the YAML file.
 ## Development
 
 ```bash
-just install
+go build -o ccl ./cmd/ccl
+mkdir -p "$(go env GOPATH)/bin"
+ln -sf "$(pwd)/ccl" "$(go env GOPATH)/bin/ccl"
 go test ./...
 ccl --help
 ```
 
-Use `just install` after code changes so the `~/go/bin/ccl` symlink points at
-the binary you just built.
+Rebuild after code changes so the Go bin-directory symlink points at the binary
+you just built.

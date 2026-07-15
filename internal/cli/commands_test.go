@@ -1,129 +1,99 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
-	"slices"
+	"strings"
 	"testing"
-
-	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 )
 
-func TestNewRootCmd_CommandSurface(t *testing.T) {
+func TestOwnedCommandSurface(t *testing.T) {
 	t.Parallel()
-
-	cmd := newRootCmd()
-
-	if cmd.Use != "ccl" {
-		t.Fatalf("Use = %q, want ccl", cmd.Use)
-	}
-	if !cmd.DisableFlagParsing {
-		t.Fatal("root command must keep DisableFlagParsing so Claude flags pass through")
-	}
-	if !cmd.SilenceErrors {
-		t.Fatal("root command should silence Cobra errors so main controls error output")
-	}
-	if cmd.PersistentPreRunE == nil {
-		t.Fatal("root command must preload config before handler execution")
-	}
-	if cmd.RunE == nil {
-		t.Fatal("root command must dispatch to the code launcher handler")
-	}
-
-	got := commandUses(cmd.Commands())
-	want := []string{
-		"doctor",
-		"providers",
-		"update",
-		"version",
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("subcommand uses = %v, want %v", got, want)
-	}
-}
-
-func TestSubcommandFlags(t *testing.T) {
-	t.Parallel()
-
-	cmd := newRootCmd()
-
-	doctor := findCommand(t, cmd, "doctor")
-	for _, name := range []string{"provider", "json", "check-net"} {
-		if doctor.Flags().Lookup(name) == nil {
-			t.Fatalf("doctor missing --%s flag", name)
+	for _, name := range []string{"providers", "doctor", "version", "update"} {
+		if !isOwnedCommand(name) {
+			t.Fatalf("%s is not owned", name)
 		}
 	}
-	if !doctor.SilenceUsage {
-		t.Fatal("doctor should silence usage on diagnostic failures")
-	}
-
-	update := findCommand(t, cmd, "update")
-	if update.Flags().Lookup("check") == nil {
-		t.Fatal("update missing --check flag")
+	for _, arg := range []string{"--model", "-p", "hello"} {
+		if isOwnedCommand(arg) {
+			t.Fatalf("%s unexpectedly owned", arg)
+		}
 	}
 }
 
-func TestLoadConfigIntoContext_SkipsConfigIndependentCommands(t *testing.T) {
+func TestCompletionCommandIsDisabled(t *testing.T) {
+	t.Parallel()
+	err := run(context.Background(), []string{"completion"}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || err.Error() != `unknown command "completion" for "ccl"` {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestVersionSkipsConfig(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	var out bytes.Buffer
+	if err := run(context.Background(), []string{"version"}, strings.NewReader(""), &out, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "ccl version") {
+		t.Fatalf("output = %q", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "cclauncher", "config.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("config touched: %v", err)
+	}
+}
 
-	for _, name := range []string{"version", "update"} {
-		t.Run(name, func(t *testing.T) {
-			cmd := &cobra.Command{Use: name}
-			cmd.SetContext(context.Background())
-
-			if err := loadConfigIntoContext(cmd, nil); err != nil {
-				t.Fatalf("loadConfigIntoContext(%s) returned error: %v", name, err)
+func TestHelpSkipsConfigAndStaysLocal(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "root flag", args: []string{"--help"}, want: "Usage: ccl"},
+		{name: "help command", args: []string{"help"}, want: "Usage: ccl"},
+		{name: "owned help command", args: []string{"help", "doctor"}, want: "Usage: ccl doctor"},
+		{name: "owned help flag", args: []string{"update", "--help"}, want: "Usage: ccl update"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			var out bytes.Buffer
+			if err := run(context.Background(), tt.args, strings.NewReader(""), &out, &bytes.Buffer{}); err != nil {
+				t.Fatalf("run(%v): %v", tt.args, err)
 			}
-			if cfg := config.FromContext(cmd.Context()); cfg != nil {
-				t.Fatalf("%s stored config in context, want nil", name)
+			if !strings.Contains(out.String(), tt.want) {
+				t.Fatalf("output = %q, want %q", out.String(), tt.want)
 			}
 			if _, err := os.Stat(filepath.Join(home, ".config", "cclauncher", "config.yaml")); !os.IsNotExist(err) {
-				t.Fatalf("%s touched config file, stat err = %v", name, err)
+				t.Fatalf("help touched config: %v", err)
 			}
 		})
 	}
 }
 
-func TestLoadConfigIntoContext_InitializesConfigForRuntimeCommands(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	cmd := &cobra.Command{Use: "providers"}
-	cmd.SetContext(context.Background())
-	if err := loadConfigIntoContext(cmd, nil); err != nil {
-		t.Fatalf("loadConfigIntoContext returned error: %v", err)
-	}
-
-	if cfg := config.FromContext(cmd.Context()); cfg == nil {
-		t.Fatal("config was not stored in command context")
-	} else if len(cfg.Providers) == 0 {
-		t.Fatal("loaded config has no providers")
-	}
-
-	if _, err := os.Stat(filepath.Join(home, ".config", "cclauncher", "config.yaml")); err != nil {
-		t.Fatalf("expected default config to be created: %v", err)
+func TestHelpRejectsUnknownOwnedCommand(t *testing.T) {
+	t.Parallel()
+	err := run(context.Background(), []string{"help", "missing"}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), `unknown ccl command "missing"`) {
+		t.Fatalf("error = %v", err)
 	}
 }
 
-func commandUses(commands []*cobra.Command) []string {
-	uses := make([]string, 0, len(commands))
-	for _, cmd := range commands {
-		uses = append(uses, cmd.Use)
+func TestDoctorFlagsParse(t *testing.T) {
+	t.Parallel()
+	var tree commandTree
+	p, err := newParser(&tree, &bytes.Buffer{}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	slices.Sort(uses)
-	return uses
-}
-
-func findCommand(t *testing.T, root *cobra.Command, name string) *cobra.Command {
-	t.Helper()
-	for _, cmd := range root.Commands() {
-		if cmd.Name() == name {
-			return cmd
-		}
+	if _, err := p.Parse([]string{"doctor", "--provider", "x", "--json", "--check-net"}); err != nil {
+		t.Fatal(err)
 	}
-	t.Fatalf("command %q not found", name)
-	return nil
+	if tree.Doctor.Provider != "x" || !tree.Doctor.JSON || !tree.Doctor.CheckNet {
+		t.Fatalf("doctor = %#v", tree.Doctor)
+	}
 }

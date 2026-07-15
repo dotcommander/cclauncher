@@ -1,5 +1,5 @@
-// Package actions holds CCL business logic that is independent of the cobra/CLI
-// layer: pure, testable functions over config types.
+// Package actions holds CCL business logic that is independent of command
+// parsing: pure, testable functions over config types.
 package actions
 
 import (

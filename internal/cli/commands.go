@@ -2,119 +2,217 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"slices"
 
-	"github.com/charmbracelet/fang"
+	"github.com/alecthomas/kong"
 	"github.com/dotcommander/cclauncher/internal/cli/handlers"
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 )
 
-// Execute runs the root command.
-func Execute() error {
-	return fang.Execute(context.Background(), newRootCmd())
+const (
+	commandDoctor    = "doctor"
+	commandHelp      = "help"
+	commandProviders = "providers"
+	commandUpdate    = "update"
+	commandVersion   = "version"
+	longHelpFlag     = "--help"
+)
+
+type commandTree struct {
+	Providers providersCommand `cmd:"" help:"List configured providers."`
+	Doctor    doctorCommand    `cmd:"" help:"Run preflight diagnostics on configured providers."`
+	Version   versionCommand   `cmd:"" help:"Show version information."`
+	Update    updateCommand    `cmd:"" help:"Update CCL to the latest version."`
 }
 
-// newRootCmd builds the root command tree.
-// The root uses DisableFlagParsing so that every flag except --provider is
-// forwarded verbatim to claude; see handlers.HandleCode for the parse logic.
-func newRootCmd() *cobra.Command {
-	root := &cobra.Command{
-		Use:   "ccl",
-		Short: "Launch Claude Code with different LLM providers",
-		Long: "Launch Claude Code with different LLM providers.\n\n" +
-			"All flags except --provider are passed through to Claude Code.\n" +
-			"Use --provider to select an LLM provider, or run bare 'ccl' to pick interactively.",
-		Example: `  ccl                                  # Launch with default provider
-  ccl --provider deepseek              # Launch with specific provider
-  ccl --provider deepseek -p "hello"   # Provider + claude print mode
-  ccl -c -p "/dc:next"                 # Continue session + print mode
-  ccl --model sonnet "hello"           # Pass claude flags directly`,
-		DisableFlagParsing: true,
-		SilenceErrors:      true,
-		Args:               cobra.ArbitraryArgs,
-		PersistentPreRunE:  loadConfigIntoContext,
-		RunE:               handlers.HandleCode,
-	}
-
-	root.CompletionOptions.HiddenDefaultCmd = true
-
-	root.AddCommand(
-		newVersionCmd(),
-		newUpdateCmd(),
-		newProvidersCmd(),
-		newDoctorCmd(),
-	)
-	return root
+type providersCommand struct{}
+type versionCommand struct{}
+type doctorCommand struct {
+	Provider string `help:"Check only this provider."`
+	JSON     bool   `help:"Emit results as JSON."`
+	CheckNet bool   `name:"check-net" help:"Probe provider reachability over the network."`
 }
 
-// loadConfigIntoContext is the root's PersistentPreRunE: it initializes the
-// config file (creating defaults if missing) and stashes the result in the
-// command context for handlers. version/update skip this to remain usable
-// with a missing or broken config.
-func loadConfigIntoContext(cmd *cobra.Command, _ []string) error {
-	switch cmd.Name() {
-	case "version", "update":
-		return nil
+func (doctorCommand) Help() string {
+	return "Run local provider checks for authentication, required fields, and base URL problems. " +
+		"Use --check-net to also probe provider reachability. The command fails only when a check reports FAIL."
+}
+
+type updateCommand struct {
+	Check bool `help:"Check for updates without installing."`
+}
+
+func (updateCommand) Help() string {
+	return "Check GitHub for the latest CCL release and install it with go install. " +
+		"Use --check to report availability without changing the installed binary."
+}
+
+// Execute routes CCL-owned subcommands through Kong and forwards every other
+// argument verbatim to Claude Code.
+func Execute(ctx context.Context) error {
+	return run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
+}
+
+func run(ctx context.Context, args []string, in io.Reader, out, errOut io.Writer) error {
+	helpTarget, helpRequested, err := requestedHelp(args)
+	if err != nil {
+		return err
 	}
+	if helpRequested {
+		return writeCommandHelp(helpTarget, out, errOut)
+	}
+
+	if len(args) > 0 && args[0] == "completion" {
+		return fmt.Errorf("unknown command %q for %q", "completion", "ccl")
+	}
+	if len(args) == 0 || !isOwnedCommand(args[0]) {
+		cfg, loadErr := loadConfig()
+		if loadErr != nil {
+			return loadErr
+		}
+		return handlers.HandleCode(ctx, cfg, args, handlers.CodeOptions{
+			Input:       in,
+			Output:      out,
+			ErrorOutput: errOut,
+		})
+	}
+
+	return runOwnedCommand(ctx, args, out, errOut)
+}
+
+func runOwnedCommand(ctx context.Context, args []string, out, errOut io.Writer) error {
+	var tree commandTree
+	parser, err := newParser(&tree, out, errOut)
+	if err != nil {
+		return err
+	}
+	parsed, err := parser.Parse(args)
+	if err != nil {
+		return err
+	}
+
+	switch parsed.Command() {
+	case commandVersion:
+		_, err = fmt.Fprintln(out, "ccl version "+handlers.GetVersion())
+		return err
+	case commandUpdate:
+		return handlers.HandleUpdate(ctx, out, errOut, tree.Update.Check)
+	case commandProviders:
+		cfg, loadErr := loadConfig()
+		if loadErr != nil {
+			return loadErr
+		}
+		return handlers.HandleProviders(out, cfg)
+	case commandDoctor:
+		cfg, loadErr := loadConfig()
+		if loadErr != nil {
+			return loadErr
+		}
+		return handlers.HandleDoctor(ctx, out, cfg, handlers.DoctorOptions{
+			Provider: tree.Doctor.Provider,
+			JSON:     tree.Doctor.JSON,
+			CheckNet: tree.Doctor.CheckNet,
+		})
+	default:
+		return fmt.Errorf("unknown command %q", parsed.Command())
+	}
+}
+
+func isOwnedCommand(arg string) bool {
+	switch arg {
+	case commandProviders, commandDoctor, commandVersion, commandUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+func loadConfig() (*config.Config, error) {
 	cfg, err := config.Init()
 	if err != nil {
-		return fmt.Errorf("initialize config: %w", err)
+		return nil, fmt.Errorf("initialize config: %w", err)
 	}
-	cmd.SetContext(config.StoreInContext(cmd.Context(), cfg))
+	return cfg, nil
+}
+
+func newParser(tree *commandTree, out, errOut io.Writer) (*kong.Kong, error) {
+	return kong.New(tree,
+		kong.Name("ccl"),
+		kong.Description("Launch Claude Code with different LLM providers."),
+		kong.Writers(out, errOut),
+		kong.NoDefaultHelp(),
+		kong.Exit(func(int) {}),
+	)
+}
+
+func requestedHelp(args []string) (string, bool, error) {
+	if len(args) == 0 {
+		return "", false, nil
+	}
+	if args[0] == commandHelp {
+		if len(args) == 1 {
+			return "", true, nil
+		}
+		if len(args) > 2 {
+			return "", false, errors.New("help accepts at most one command")
+		}
+		if !isOwnedCommand(args[1]) {
+			return "", false, fmt.Errorf("unknown ccl command %q", args[1])
+		}
+		return args[1], true, nil
+	}
+	if !slices.ContainsFunc(args, isHelpFlag) {
+		return "", false, nil
+	}
+	if isOwnedCommand(args[0]) {
+		return args[0], true, nil
+	}
+	return "", true, nil
+}
+
+func isHelpFlag(arg string) bool {
+	return arg == "-h" || arg == longHelpFlag
+}
+
+func writeCommandHelp(command string, out, errOut io.Writer) error {
+	if command == "" {
+		return writeRootHelp(out)
+	}
+	var tree commandTree
+	parser, err := newParser(&tree, out, errOut)
+	if err != nil {
+		return fmt.Errorf("create command help: %w", err)
+	}
+	parsed, err := parser.Parse([]string{command})
+	if err != nil {
+		return fmt.Errorf("parse command help: %w", err)
+	}
+	if err := parsed.PrintUsage(false); err != nil {
+		return fmt.Errorf("write command help: %w", err)
+	}
 	return nil
 }
 
-func newProvidersCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "providers",
-		Short: "List configured providers",
-		Long:  "List all configured LLM providers with their model and authentication status.",
-		Args:  cobra.NoArgs,
-		RunE:  handlers.HandleProviders,
-	}
-}
+func writeRootHelp(out io.Writer) error {
+	_, err := fmt.Fprint(out, `Usage: ccl [flags passed to Claude Code]
+       ccl <command> [flags]
 
-func newDoctorCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "doctor",
-		Short: "Run preflight diagnostics on configured providers",
-		Long: "Run local preflight diagnostics (auth, required fields, baseUrl lint) " +
-			"against every configured provider, or a single one with --provider.\n\n" +
-			"Exits non-zero if any check FAILs. Use --check-net to also probe reachability.",
-		Args:         cobra.NoArgs,
-		SilenceUsage: true,
-		RunE:         handlers.HandleDoctor,
-	}
-	cmd.Flags().String("provider", "", "Check only this provider")
-	cmd.Flags().Bool("json", false, "Emit results as JSON")
-	cmd.Flags().Bool("check-net", false, "Probe provider reachability over the network")
-	return cmd
-}
+Launch Claude Code with different LLM providers.
 
-func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Show version information",
-		Args:  cobra.NoArgs,
-		Run: func(*cobra.Command, []string) {
-			fmt.Println("ccl version " + handlers.GetVersion())
-		},
-	}
-}
+All flags except --provider are passed through to Claude Code.
+Use --provider to select an LLM provider, or run bare ccl to pick interactively.
 
-func newUpdateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update CCL to the latest version",
-		Long: "Update CCL to the latest version from GitHub.\n\n" +
-			"This command uses 'go install' to update the binary.\n" +
-			"Requires Go to be installed on your system.",
-		Example: "  ccl update         # Update to latest version\n" +
-			"  ccl update --check # Check for updates without installing",
-		Args: cobra.NoArgs,
-		RunE: handlers.HandleUpdate,
-	}
-	cmd.Flags().Bool("check", false, "Check for updates without installing")
-	return cmd
+Commands:
+  providers  List configured providers
+  doctor     Run preflight diagnostics
+  version    Show version information
+  update     Update CCL
+
+Run ccl help <command> for command-specific help.
+`)
+	return err
 }

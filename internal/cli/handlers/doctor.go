@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -11,7 +13,6 @@ import (
 	"charm.land/lipgloss/v2/table"
 	"github.com/dotcommander/cclauncher/internal/actions"
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 )
 
 // ExitCodeError carries an intended process exit code alongside a message.
@@ -24,23 +25,22 @@ type ExitCodeError struct {
 
 func (e *ExitCodeError) Error() string { return e.Msg }
 
-// HandleDoctor runs preflight diagnostics for the selected provider(s).
-func HandleDoctor(cmd *cobra.Command, _ []string) error {
-	cfg, err := configFromCmd(cmd)
-	if err != nil {
-		return err
-	}
-	providerFlag, _ := cmd.Flags().GetString("provider")
-	jsonOut, _ := cmd.Flags().GetBool("json")
-	checkNet, _ := cmd.Flags().GetBool("check-net")
+// DoctorOptions controls provider selection, output format, and network checks.
+type DoctorOptions struct {
+	Provider string
+	JSON     bool
+	CheckNet bool
+}
 
-	names, err := selectProviders(providerFlag, cfg)
+// HandleDoctor runs preflight diagnostics for the selected provider(s).
+func HandleDoctor(ctx context.Context, out io.Writer, cfg *config.Config, opts DoctorOptions) error {
+	names, err := selectProviders(opts.Provider, cfg)
 	if err != nil {
 		return err
 	}
 
 	var client *http.Client
-	if checkNet {
+	if opts.CheckNet {
 		client = &http.Client{Timeout: actions.DoctorNetTimeout}
 	}
 
@@ -48,17 +48,19 @@ func HandleDoctor(cmd *cobra.Command, _ []string) error {
 	for _, name := range names {
 		p := cfg.Providers[name]
 		results = append(results, actions.RunChecks(name, p)...)
-		if checkNet {
-			results = append(results, actions.ProbeReachability(cmd.Context(), client, name, p))
+		if opts.CheckNet {
+			results = append(results, actions.ProbeReachability(ctx, client, name, p))
 		}
 	}
 
-	if jsonOut {
-		if err := json.NewEncoder(cmd.OutOrStdout()).Encode(results); err != nil {
-			return err
+	if opts.JSON {
+		if err := json.NewEncoder(out).Encode(results); err != nil {
+			return fmt.Errorf("write doctor JSON: %w", err)
 		}
 	} else {
-		writeDoctorTable(cmd.OutOrStdout(), results)
+		if err := writeDoctorTable(out, results); err != nil {
+			return fmt.Errorf("write doctor table: %w", err)
+		}
 	}
 	if anyFail(results) {
 		return &ExitCodeError{Code: 1, Msg: "one or more providers failed preflight checks"}
@@ -85,17 +87,17 @@ func writeDoctorTable(out io.Writer, results []actions.CheckResult) error {
 		Headers("PROVIDER", "CHECK", "STATUS", "REASON").
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return styleHeader
+				return headerStyle()
 			}
-			style := styleCell
+			style := cellStyle()
 			if col == statusCol && row >= 0 && row < len(results) {
 				switch results[row].Status {
 				case actions.StatusPass:
-					style = style.Foreground(colorPass)
+					style = style.Foreground(lipgloss.Color(colorPass))
 				case actions.StatusWarn:
-					style = style.Foreground(colorWarn)
+					style = style.Foreground(lipgloss.Color(colorWarn))
 				case actions.StatusFail:
-					style = style.Foreground(colorFail).Bold(true)
+					style = style.Foreground(lipgloss.Color(colorFail)).Bold(true)
 				}
 			}
 			return style

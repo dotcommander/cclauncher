@@ -80,3 +80,12 @@ func TestIsInteractive(t *testing.T) {
 	t.Parallel()
 	require.False(t, isInteractive(&bytes.Buffer{}))
 }
+
+func TestTerminalProviderSelectorCancellation(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	selector := TerminalProviderSelector{In: &bytes.Buffer{}, Out: &bytes.Buffer{}}
+	_, err := selector.SelectProvider(ctx, []ProviderChoice{{Name: "zai"}}, "zai")
+	require.ErrorIs(t, err, context.Canceled)
+}

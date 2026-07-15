@@ -28,4 +28,3 @@ func TestCLICommands(t *testing.T) {
 	})
 
 }
-

@@ -7,20 +7,14 @@ import (
 	"testing"
 
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newDoctorTestCmd(cfg *config.Config) (*cobra.Command, *bytes.Buffer) {
-	cmd := &cobra.Command{RunE: HandleDoctor}
-	cmd.Flags().String("provider", "", "")
-	cmd.Flags().Bool("json", false, "")
-	cmd.Flags().Bool("check-net", false, "")
+func runDoctorTest(cfg *config.Config, opts DoctorOptions) (*bytes.Buffer, error) {
 	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetContext(config.StoreInContext(context.Background(), cfg))
-	return cmd, &out
+	err := HandleDoctor(context.Background(), &out, cfg, opts)
+	return &out, err
 }
 
 func doctorTestConfig() *config.Config {
@@ -36,18 +30,14 @@ func doctorTestConfig() *config.Config {
 
 func TestHandleDoctor_UnknownProvider(t *testing.T) {
 	t.Parallel()
-	cmd, _ := newDoctorTestCmd(doctorTestConfig())
-	require.NoError(t, cmd.Flags().Set("provider", "nope"))
-	err := HandleDoctor(cmd, nil)
+	_, err := runDoctorTest(doctorTestConfig(), DoctorOptions{Provider: "nope"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown provider")
 }
 
 func TestHandleDoctor_ProviderScoping(t *testing.T) {
 	t.Parallel()
-	cmd, out := newDoctorTestCmd(doctorTestConfig())
-	require.NoError(t, cmd.Flags().Set("provider", "alpha"))
-	_ = HandleDoctor(cmd, nil) // alpha has auth → no FAIL
+	out, _ := runDoctorTest(doctorTestConfig(), DoctorOptions{Provider: "alpha"})
 	got := out.String()
 	assert.Contains(t, got, "alpha")
 	assert.NotContains(t, got, "beta")
@@ -55,8 +45,7 @@ func TestHandleDoctor_ProviderScoping(t *testing.T) {
 
 func TestHandleDoctor_AllProviders(t *testing.T) {
 	t.Parallel()
-	cmd, out := newDoctorTestCmd(doctorTestConfig())
-	_ = HandleDoctor(cmd, nil)
+	out, _ := runDoctorTest(doctorTestConfig(), DoctorOptions{})
 	got := out.String()
 	assert.Contains(t, got, "alpha")
 	assert.Contains(t, got, "beta")
@@ -64,17 +53,13 @@ func TestHandleDoctor_AllProviders(t *testing.T) {
 
 func TestHandleDoctor_NoFailOnMissingAuth(t *testing.T) {
 	t.Parallel()
-	cmd, _ := newDoctorTestCmd(doctorTestConfig())
-	require.NoError(t, cmd.Flags().Set("provider", "beta")) // requires auth, no token
-	err := HandleDoctor(cmd, nil)
+	_, err := runDoctorTest(doctorTestConfig(), DoctorOptions{Provider: "beta"})
 	require.NoError(t, err)
 }
 
 func TestHandleDoctor_JSONNoSecrets(t *testing.T) {
 	t.Parallel()
-	cmd, out := newDoctorTestCmd(doctorTestConfig())
-	require.NoError(t, cmd.Flags().Set("json", "true"))
-	_ = HandleDoctor(cmd, nil)
+	out, _ := runDoctorTest(doctorTestConfig(), DoctorOptions{JSON: true})
 	got := out.String()
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(got), "["), "json output should be an array")
 	require.NotContains(t, got, "secret-token")

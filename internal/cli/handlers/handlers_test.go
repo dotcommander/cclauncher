@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"errors"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +11,28 @@ import (
 	"github.com/dotcommander/cclauncher/internal/config"
 	"github.com/stretchr/testify/require"
 )
+
+func TestResolvedVersion(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		configured string
+		info       *debug.BuildInfo
+		ok         bool
+		want       string
+	}{
+		{name: "ldflags override", configured: "v0.5.1", info: &debug.BuildInfo{Main: debug.Module{Version: "v0.5.0"}}, ok: true, want: "v0.5.1"},
+		{name: "installed module", configured: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "v0.5.1"}}, ok: true, want: "v0.5.1"},
+		{name: "local build", configured: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, ok: true, want: "dev"},
+		{name: "missing build info", configured: "dev", ok: false, want: "dev"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, resolvedVersion(tt.configured, tt.info, tt.ok))
+		})
+	}
+}
 
 func TestExtractProviderFromArgs(t *testing.T) {
 	t.Parallel()

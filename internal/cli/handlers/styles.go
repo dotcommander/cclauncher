@@ -14,24 +14,32 @@ import (
 // through a colorprofile.Writer whose profile is detected from the real stdout,
 // so ANSI is emitted in a terminal but stripped when piped, in CI, or captured
 // by a test buffer.
-var (
-	colorPass   = lipgloss.Color("42")  // green
-	colorWarn   = lipgloss.Color("214") // amber
-	colorFail   = lipgloss.Color("196") // red
-	colorHeader = lipgloss.Color("99")  // purple, matches fang's help
-	colorMuted  = lipgloss.Color("240") // dim border / secondary text
-	colorAccent = lipgloss.Color("212") // pink accent
-
-	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(colorHeader).Padding(0, 1)
-	styleCell   = lipgloss.NewStyle().Padding(0, 1)
-	styleBorder = lipgloss.NewStyle().Foreground(colorMuted)
+const (
+	colorPass   = "42"  // green
+	colorWarn   = "214" // amber
+	colorFail   = "196" // red
+	colorHeader = "99"  // purple help accent
+	colorMuted  = "240" // dim border / secondary text
+	colorAccent = "212" // pink accent
 )
+
+func headerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(colorHeader)).Padding(0, 1)
+}
+
+func cellStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Padding(0, 1)
+}
+
+func borderStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(colorMuted))
+}
 
 // newTable returns a table preconfigured with ccl's border and border style.
 func newTable() *table.Table {
 	return table.New().
 		Border(lipgloss.RoundedBorder()).
-		BorderStyle(styleBorder)
+		BorderStyle(borderStyle())
 }
 
 // profileWriter wraps out so emitted ANSI matches the real stdout's color

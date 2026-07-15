@@ -2,27 +2,13 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/dotcommander/cclauncher/internal/actions"
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
-
-func TestConfigFromCmdRequiresLoadedConfig(t *testing.T) {
-	t.Parallel()
-
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-
-	cfg, err := configFromCmd(cmd)
-
-	require.Nil(t, cfg)
-	require.ErrorIs(t, err, errConfigNotLoaded)
-}
 
 func TestUnknownProviderErrorIncludesRecoveryHint(t *testing.T) {
 	t.Parallel()

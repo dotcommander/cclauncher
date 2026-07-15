@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -23,7 +25,8 @@ func main() {
 	})
 	slog.SetDefault(slog.New(handler))
 
-	if err := cli.Execute(); err != nil {
+	if err := cli.Execute(context.Background()); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

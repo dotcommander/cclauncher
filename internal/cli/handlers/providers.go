@@ -8,17 +8,11 @@ import (
 	lipgloss "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/dotcommander/cclauncher/internal/config"
-	"github.com/spf13/cobra"
 )
 
 // HandleProviders prints the configured providers as a table, marking the
 // default and showing whether each has auth credentials available.
-func HandleProviders(cmd *cobra.Command, _ []string) error {
-	cfg, err := configFromCmd(cmd)
-	if err != nil {
-		return err
-	}
-	out := cmd.OutOrStdout()
+func HandleProviders(out io.Writer, cfg *config.Config) error {
 	return writeProviders(out, cfg)
 }
 
@@ -44,22 +38,22 @@ func writeProviders(out io.Writer, cfg *config.Config) error {
 		Headers("PROVIDER", "MODEL", "AUTH").
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return styleHeader
+				return headerStyle()
 			}
 			if row < 0 || row >= len(rows) {
-				return styleCell
+				return cellStyle()
 			}
-			style := styleCell
+			style := cellStyle()
 			switch col {
 			case 0:
 				if row == defaultRow {
-					style = style.Bold(true).Foreground(colorAccent)
+					style = style.Bold(true).Foreground(lipgloss.Color(colorAccent))
 				}
 			case authCol:
 				if rows[row][authCol] == "yes" {
-					style = style.Foreground(colorPass)
+					style = style.Foreground(lipgloss.Color(colorPass))
 				} else {
-					style = style.Foreground(colorMuted)
+					style = style.Foreground(lipgloss.Color(colorMuted))
 				}
 			}
 			return style
