@@ -146,6 +146,12 @@ func newParser(tree *commandTree, out, errOut io.Writer) (*kong.Kong, error) {
 		kong.Writers(out, errOut),
 		kong.NoDefaultHelp(),
 		kong.Exit(func(int) {}),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact:   true,
+			Tree:      true,
+			Summary:   true,
+			FlagsLast: true,
+		}),
 	)
 }
 
