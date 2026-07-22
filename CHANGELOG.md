@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.2 (2026-07-22)
+
+### Fixed
+
+- Configure Kong's compact tree help layout so command summaries and flags render in their intended sections.
+
 ## v0.5.1 (2026-07-14)
 
 ### Fixed
