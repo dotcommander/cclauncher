@@ -86,8 +86,8 @@ func applyMutations(rule config.TransformRule, body map[string]any, headers map[
 		body["max_tokens"] = rule.SetMaxTokens
 	}
 
-	if rule.SetTemperature != 0 {
-		body["temperature"] = rule.SetTemperature
+	if rule.SetTemperature != nil {
+		body["temperature"] = *rule.SetTemperature
 	}
 
 	for k, v := range rule.ModifyBody {

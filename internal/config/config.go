@@ -111,7 +111,7 @@ type TransformRule struct {
 
 	SetModel       string            `json:"setModel,omitempty" yaml:"setModel,omitempty"`
 	SetMaxTokens   int               `json:"setMaxTokens,omitempty" yaml:"setMaxTokens,omitempty"`
-	SetTemperature float64           `json:"setTemperature,omitempty" yaml:"setTemperature,omitempty"`
+	SetTemperature *float64          `json:"setTemperature,omitempty" yaml:"setTemperature,omitempty"`
 	AddHeaders     map[string]string `json:"addHeaders,omitempty" yaml:"addHeaders,omitempty"`
 	ModifyBody     map[string]any    `json:"modifyBody,omitempty" yaml:"modifyBody,omitempty"`
 

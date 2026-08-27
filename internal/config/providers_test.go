@@ -169,6 +169,37 @@ cli:
 	require.Equal(t, "https://api.example.com/anthropic", cfg.Providers["custom"].BaseURL)
 }
 
+func TestLoad_PreservesTemperaturePresence(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	data := []byte(`providers:
+  custom:
+    baseUrl: "https://api.example.com/anthropic"
+    authRequired: false
+    transformer:
+      rules:
+        - modelPattern: "zero"
+          setTemperature: 0
+        - modelPattern: "omitted"
+        - modelPattern: "nonzero"
+          setTemperature: 0.25
+cli:
+  defaultProvider: "custom"
+`)
+	require.NoError(t, os.WriteFile(configPath, data, 0600))
+
+	cfg, err := NewLoaderWithPaths(tmpDir, configPath).Load()
+	require.NoError(t, err)
+	rules := cfg.Providers["custom"].Transformer.Rules
+	require.Len(t, rules, 3)
+	require.NotNil(t, rules[0].SetTemperature)
+	require.Zero(t, *rules[0].SetTemperature)
+	require.Nil(t, rules[1].SetTemperature)
+	require.NotNil(t, rules[2].SetTemperature)
+	require.InDelta(t, 0.25, *rules[2].SetTemperature, 1e-9)
+}
+
 func TestEnsureExists_CreatesDefaultConfig(t *testing.T) {
 	t.Parallel()
 	// Use a temporary directory that doesn't have a config file

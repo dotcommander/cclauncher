@@ -130,6 +130,35 @@ func TestApplyRules(t *testing.T) {
 		require.Equal(t, "claude-sonnet-4", parsed["model"])
 	})
 
+	t.Run("setTemperature distinguishes omission from zero", func(t *testing.T) {
+		t.Parallel()
+
+		zero := 0.0
+		nonzero := 0.25
+		tests := []struct {
+			name string
+			set  *float64
+			want float64
+		}{
+			{name: "omitted", want: 0.7},
+			{name: "zero", set: &zero, want: 0},
+			{name: "nonzero", set: &nonzero, want: 0.25},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				rule := newRule("sonnet", 0, 0)
+				rule.SetTemperature = tt.set
+				out, _, err := ApplyRules([]config.TransformRule{rule}, []byte(`{"model":"claude-sonnet","temperature":0.7}`))
+				require.NoError(t, err)
+
+				var parsed map[string]any
+				require.NoError(t, json.Unmarshal(out, &parsed))
+				require.InDelta(t, tt.want, parsed["temperature"], 1e-9)
+			})
+		}
+	})
+
 	t.Run("message pattern must match body", func(t *testing.T) {
 		t.Parallel()
 
