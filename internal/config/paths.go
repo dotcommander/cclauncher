@@ -1,25 +1,24 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
-// getDefaultHomeDir returns the default config home directory
-func getDefaultHomeDir() string {
+func defaultHomeDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		home = os.Getenv("HOME")
+		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".config", "cclauncher")
+	return filepath.Join(home, ".config", "cclauncher"), nil
 }
-
-// getDefaultConfigFile returns the default config file path
+func getDefaultHomeDir() string { home, _ := defaultHomeDir(); return home }
 func getDefaultConfigFile() string {
-	return filepath.Join(getDefaultHomeDir(), "config.yaml")
+	home, err := defaultHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, "config.yaml")
 }
-
-// GetConfigPath returns the path to the config file
-func GetConfigPath() string {
-	return getDefaultConfigFile()
-}
+func GetConfigPath() string { return getDefaultConfigFile() }

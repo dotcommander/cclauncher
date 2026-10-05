@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/term"
 	"github.com/dotcommander/cclauncher/internal/config"
 )
 
@@ -71,18 +72,15 @@ func (s TerminalProviderSelector) SelectProvider(ctx context.Context, choices []
 	return selected, nil
 }
 
-// isInteractive reports whether in is a terminal (character device). The picker
-// only opens for a human at a TTY; piped/CI stdin falls back to the default.
+// isInteractive reports whether the supplied input is a real terminal.
 func isInteractive(in io.Reader) bool {
 	f, ok := in.(*os.File)
-	if !ok {
-		return false
-	}
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice != 0
+	return ok && term.IsTerminal(f.Fd())
+}
+
+func isTerminalOutput(out io.Writer) bool {
+	f, ok := out.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
 }
 
 // pickProvider opens the interactive picker, pre-selecting the current default
@@ -117,4 +115,8 @@ func providerChoices(cfg *config.Config) []ProviderChoice {
 		})
 	}
 	return choices
+}
+
+func shouldPickProvider(args []string, opts CodeOptions) bool {
+	return len(args) == 0 && isInteractive(opts.Input) && isTerminalOutput(opts.Output)
 }

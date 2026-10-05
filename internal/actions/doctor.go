@@ -61,27 +61,19 @@ func checkAuth(name string, p config.Provider) CheckResult {
 
 func checkFields(name string, p config.Provider) CheckResult {
 	r := CheckResult{Provider: name, Check: "fields"}
-	switch {
-	case p.BaseURL == "":
-		r.Status = StatusFail
-		r.Reason = "baseUrl is empty"
-	case p.Model == "" && strings.HasPrefix(p.BaseURL, "https://api.anthropic.com"):
-		r.Status = StatusPass
-		r.Reason = "baseUrl present; model omitted (native Anthropic uses its default)"
-	case p.Model == "":
-		r.Status = StatusFail
-		r.Reason = "model is empty"
-	default:
-		r.Status = StatusPass
-		r.Reason = "baseUrl and model present"
+	if err := config.ValidateProviderEndpoint(p); err != nil {
+		r.Status, r.Reason = StatusFail, err.Error()
+	} else {
+		r.Status, r.Reason = StatusPass, "baseUrl and model valid"
 	}
 	return r
 }
 
 func checkBaseURL(name string, p config.Provider) CheckResult {
 	r := CheckResult{Provider: name, Check: "baseurl"}
+	baseURL := strings.TrimRight(p.BaseURL, "/")
 	switch {
-	case strings.HasSuffix(p.BaseURL, "/v1"):
+	case strings.HasSuffix(baseURL, "/v1"):
 		r.Status = StatusWarn
 		r.Reason = "baseUrl ends in /v1 — proxy appends /v1/messages, yielding /v1/v1/messages"
 	case strings.Contains(p.BaseURL, "/api/paas/v4"):
@@ -100,6 +92,12 @@ func checkBaseURL(name string, p config.Provider) CheckResult {
 // credentials to this request.
 func ProbeReachability(ctx context.Context, client *http.Client, name string, p config.Provider) CheckResult {
 	r := CheckResult{Provider: name, Check: "net"}
+	if client == nil {
+		r.Status, r.Reason = StatusWarn, "cannot probe: HTTP client is not configured"
+		return r
+	}
+	ctx, cancel := context.WithTimeout(ctx, DoctorNetTimeout)
+	defer cancel()
 	if p.BaseURL == "" {
 		r.Status = StatusWarn
 		r.Reason = "cannot probe: baseUrl is empty"

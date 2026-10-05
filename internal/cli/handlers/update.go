@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -20,19 +22,30 @@ const (
 // HandleUpdate checks GitHub for a newer release and, unless --check was set,
 // runs `go install` to update the binary.
 func HandleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool) error {
-	if _, err := exec.LookPath("go"); err != nil {
-		return errors.New("go command not found — install Go from https://golang.org/dl/ to self-update")
-	}
+	return handleUpdate(ctx, out, errOut, checkOnly, GetVersion(), updateDeps{
+		fetch: fetchLatestVersion, lookPath: exec.LookPath,
+		install: func(ctx context.Context, path string) error {
+			cmd := exec.CommandContext(ctx, path, "install", goInstallTarget)
+			cmd.Stdout, cmd.Stderr = out, errOut
+			return cmd.Run()
+		},
+	})
+}
 
-	current := GetVersion()
+type updateDeps struct {
+	fetch    func(context.Context) (string, error)
+	lookPath func(string) (string, error)
+	install  func(context.Context, string) error
+}
+
+func handleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool, current string, deps updateDeps) error {
 	if err := writeUpdateStatus(out, "Current version: %s\n", current); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
-	defer cancel()
-
-	latest, err := fetchLatestVersion(ctx)
+	lookupCtx, cancel := context.WithTimeout(ctx, updateTimeout)
+	latest, err := deps.fetch(lookupCtx)
+	cancel()
 	if err != nil {
 		return fmt.Errorf("check for updates: %w", err)
 	}
@@ -40,19 +53,25 @@ func HandleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool) er
 		return err
 	}
 
-	if current == latest {
+	comparison, determinate := compareStableVersions(current, latest)
+	if !determinate {
+		return writeUpdateStatus(out, "Version comparison indeterminate; installation skipped\n")
+	}
+	if comparison >= 0 {
 		return writeUpdateStatus(out, "Already up to date\n")
 	}
 	if checkOnly {
 		return writeUpdateStatus(out, "Update available — run 'ccl update' to install\n")
 	}
 
+	goPath, err := deps.lookPath("go")
+	if err != nil {
+		return errors.New("go command not found — install Go from https://golang.org/dl/ to self-update")
+	}
 	if err := writeUpdateStatus(out, "Updating...\n"); err != nil {
 		return err
 	}
-	install := exec.CommandContext(ctx, "go", "install", goInstallTarget)
-	install.Stdout, install.Stderr = out, errOut
-	if err := install.Run(); err != nil {
+	if err := deps.install(ctx, goPath); err != nil {
 		return fmt.Errorf("go install: %w", err)
 	}
 
@@ -101,4 +120,48 @@ func fetchLatestVersion(ctx context.Context) (string, error) {
 		return "", errors.New("release has empty tag_name")
 	}
 	return release.TagName, nil
+}
+
+// compareStableVersions accepts numeric major.minor.patch versions only.
+func compareStableVersions(current, latest string) (int, bool) {
+	parse := func(v string) ([3]uint64, bool) {
+		var result [3]uint64
+		parts := strings.Split(strings.TrimPrefix(v, "v"), ".")
+		if len(parts) != 3 {
+			return result, false
+		}
+		for i, part := range parts {
+			if part == "" || (len(part) > 1 && part[0] == '0') {
+				return result, false
+			}
+			for _, c := range part {
+				if c < '0' || c > '9' {
+					return result, false
+				}
+			}
+			n, err := strconv.ParseUint(part, 10, 64)
+			if err != nil {
+				return result, false
+			}
+			result[i] = n
+		}
+		return result, true
+	}
+	a, ok := parse(current)
+	if !ok {
+		return 0, false
+	}
+	b, ok := parse(latest)
+	if !ok {
+		return 0, false
+	}
+	for i := range a {
+		if a[i] < b[i] {
+			return -1, true
+		}
+		if a[i] > b[i] {
+			return 1, true
+		}
+	}
+	return 0, true
 }

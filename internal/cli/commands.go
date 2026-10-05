@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/cclauncher/internal/cli/handlers"
@@ -171,13 +170,20 @@ func requestedHelp(args []string) (string, bool, error) {
 		}
 		return args[1], true, nil
 	}
-	if !slices.ContainsFunc(args, isHelpFlag) {
-		return "", false, nil
+	if len(args) == 1 && isHelpFlag(args[0]) {
+		return "", true, nil
 	}
 	if isOwnedCommand(args[0]) {
-		return args[0], true, nil
+		for _, arg := range args[1:] {
+			if arg == "--" {
+				break
+			}
+			if isHelpFlag(arg) {
+				return args[0], true, nil
+			}
+		}
 	}
-	return "", true, nil
+	return "", false, nil
 }
 
 func isHelpFlag(arg string) bool {
@@ -209,8 +215,14 @@ func writeRootHelp(out io.Writer) error {
 
 Launch Claude Code with different LLM providers.
 
-All flags except --provider are passed through to Claude Code.
-Use --provider to select an LLM provider, or run bare ccl to pick interactively.
+Use --provider PROVIDER (or leading -p PROVIDER) to select a provider.
+Other launch arguments are passed to Claude Code. The first -- ends CCL parsing.
+Run bare ccl at a terminal to pick interactively.
+
+Examples:
+  ccl --provider zai --help     Show Claude Code help
+  ccl -p zai -p "Explain this"  Select zai and use Claude print mode
+  ccl -- --help                Forward help to Claude Code
 
 Commands:
   providers  List configured providers

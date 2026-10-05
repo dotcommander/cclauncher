@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"regexp"
@@ -18,6 +19,11 @@ var envVarRegex = regexp.MustCompile(`\$\{([^}]+)\}|\$([A-Z_][A-Z0-9_]*)`)
 // - In strict mode: returns an error
 // - In normal mode: uses default value if provided, otherwise empty string
 func InterpolateEnvVars(input string, strict bool) (string, error) {
+	for _, match := range envVarRegex.FindAllString(input, -1) {
+		if strings.Contains(strings.TrimPrefix(match, "${"), "${") {
+			return "", fmt.Errorf("nested environment expression")
+		}
+	}
 	var missingVars []string
 
 	result := envVarRegex.ReplaceAllStringFunc(input, func(match string) string {
@@ -27,7 +33,7 @@ func InterpolateEnvVars(input string, strict bool) (string, error) {
 			return envValue
 		}
 
-		if defaultVal != "" {
+		if strings.Contains(match, ":-") {
 			return defaultVal
 		}
 

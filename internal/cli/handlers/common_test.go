@@ -26,7 +26,7 @@ func TestSelectProviders(t *testing.T) {
 	cfg := &config.Config{
 		Providers: map[string]config.Provider{
 			"zai":      {Model: "glm-4.7"},
-			"deepseek": {Model: "deepseek-v4-pro"},
+			"deepseek": {Model: "deepseek-v4.1-flash"},
 		},
 		CLI: config.CLIConfig{DefaultProvider: "zai"},
 	}

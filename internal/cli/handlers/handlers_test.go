@@ -167,7 +167,7 @@ func TestResolveProvider(t *testing.T) {
 
 	cfg := &config.Config{
 		Providers: map[string]config.Provider{
-			"deepseek": {Model: "deepseek-v4-pro", SmallFastModel: "deepseek-v4-flash"},
+			"deepseek": {Model: "deepseek-v4.1-flash", SmallFastModel: "deepseek-v4.1-flash"},
 			"zai":      {Model: "glm-4.7", SmallFastModel: "glm-4.5-air"},
 		},
 		CLI: config.CLIConfig{DefaultProvider: "zai"},

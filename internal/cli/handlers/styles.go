@@ -11,7 +11,7 @@ import (
 )
 
 // Shared lipgloss palette for ccl's CLI tables and prompts. Output is written
-// through a colorprofile.Writer whose profile is detected from the real stdout,
+// through a colorprofile.Writer whose profile is detected from the supplied output,
 // so ANSI is emitted in a terminal but stripped when piped, in CI, or captured
 // by a test buffer.
 const (
@@ -42,11 +42,11 @@ func newTable() *table.Table {
 		BorderStyle(borderStyle())
 }
 
-// profileWriter wraps out so emitted ANSI matches the real stdout's color
+// profileWriter wraps out so emitted ANSI matches the supplied output's color
 // profile (plain when stdout is not a TTY: pipes, CI, captured test buffers).
 func profileWriter(out io.Writer) *colorprofile.Writer {
 	w := colorprofile.NewWriter(out, os.Environ())
-	w.Profile = colorprofile.Detect(os.Stdout, os.Environ())
+	w.Profile = colorprofile.Detect(out, os.Environ())
 	return w
 }
 

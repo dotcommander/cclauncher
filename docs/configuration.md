@@ -168,9 +168,9 @@ The optional `router` block can pin a model slot to a named provider. This is ra
 
 ```yaml
 # router:
-#   default: "deepseek:deepseek-v4-pro"   # the ONLY slot CCL acts on today
+#   default: "deepseek:deepseek-v4.1-flash"   # the ONLY slot CCL acts on today
 #   # Reserved (parsed but currently inert — no effect):
-#   # background: "deepseek:deepseek-v4-flash"
+#   # background: "deepseek:deepseek-v4.1-flash"
 #   # longContext: "openrouter:deepseek/deepseek-v3.2"
 #   # think: "openrouter:anthropic/claude-sonnet-4.5"
 #   # webSearch: "zai:glm-4.7"
@@ -187,7 +187,7 @@ When it applies, CCL sets both the provider's `model` and `smallFastModel` to `<
 
 **reject_if — when the entry is silently ignored (no error, no effect):**
 
-- the value has no `:` (e.g. `"deepseek-v4-pro"`) → ignored;
+- the value has no `:` (e.g. `"deepseek-v4.1-flash"`) → ignored;
 - `<provider>` names a provider other than the one selected this launch → ignored;
 - `<model>` is empty (e.g. `"deepseek:"`) → ignored;
 - the slot is one of the reserved slots (`background`, `longContext`, `think`, `webSearch`, `longContextThreshold`) → ignored.
@@ -217,8 +217,8 @@ providers:
             X-Routing-Hint: "coding"
 ```
 
-`transformer.use` loads built-in rule presets. CCL expands preset names during
-config load, before the launcher decides whether to start the local proxy.
+`transformer.use` loads built-in rule presets. CCL preserves preset references during config load and resolves a separate deep copy
+at launch, before deciding whether to start the local proxy.
 Preset rules run before inline `transformer.rules`, so provider-specific rules
 can add final headers or body changes.
 
@@ -281,3 +281,35 @@ Useful acceptance checks for a new preset:
 - presets depend on network state or local files outside the config.
 - preset expansion mutates shared registry state.
 - docs mention a preset that has no test proving its request mutation.
+
+## Scalar interpolation and persistence
+
+CCL parses YAML before filling omitted fields from shipped defaults, then interpolates
+scalar values once. Keys are literal. Replacement punctuation, newlines and embedded
+`${VAR}` text remain data; they cannot introduce YAML fields or another substitution.
+Nested expressions in source templates are rejected. `${VAR:-}` supports an empty
+fallback. String fields remain strings; declared numeric and boolean fields are
+converted according to their schema. Explicit empty values and `false` are preserved.
+Existing providers inherit omitted non-secret endpoint/model/policy fields; their
+credentials are never filled from a shipped provider template.
+
+Credential overrides uppercase the provider name and replace hyphens with underscores.
+`CCL_MY_PROVIDER_API_KEY` takes precedence over legacy `CCL_MY-PROVIDER_API_KEY`.
+An explicitly present empty override clears credentials too. Overrides set `authToken`
+and clear competing `apiKey` and `oauthToken` values.
+
+`doctor.probeConcurrency` defaults to `4` in shipped YAML. Set `1` for sequential
+probes. Omission inherits the shipped setting; nonpositive values are rejected.
+
+Saving keeps preset references declarative. General YAML comments and environment
+source templates are not preserved by `Save`; setting the default provider separately
+preserves them. Atomic writes follow legitimate symlinks, preserve target permissions,
+and sync the replacement and containing directory. A failure after replacement reports
+that the new file is already in place. Dangling symlinks are refused.
+
+Provider endpoints must be absolute HTTP(S) URLs; local HTTP is supported. Native
+Anthropic can omit a model for direct Claude login. Transformed native launches need a
+configured upstream key. `responseFormat` is rejected with provider/rule context.
+Exact `"*"` matches any model/message; other patterns match substrings. Message patterns
+match serialized raw request JSON, including roles and metadata. Counting requests
+support model/header/body edits but never add generation settings.

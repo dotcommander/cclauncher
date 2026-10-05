@@ -27,7 +27,7 @@ func TestResolveTransformerPresets(t *testing.T) {
 		require.Equal(t, 8193, resolved.Rules[0].TokenRange.Min)
 		require.Equal(t, 8192, resolved.Rules[0].SetMaxTokens)
 		require.Equal(t, "provider-model", resolved.Rules[1].SetModel)
-		require.Equal(t, []string{"clamp-max-tokens-8192"}, resolved.Use)
+		require.Empty(t, resolved.Use)
 	})
 
 	t.Run("unknown preset rejects config", func(t *testing.T) {

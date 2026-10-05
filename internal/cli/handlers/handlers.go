@@ -51,7 +51,7 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		return err
 	}
 
-	if providerName == "" && isInteractive(opts.Input) {
+	if shouldPickProvider(args, opts) {
 		selector := TerminalProviderSelector{In: opts.Input, Out: opts.Output}
 		providerName, err = pickProvider(ctx, cfg, selector)
 		if err != nil {
@@ -64,6 +64,13 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		return err
 	}
 
+	provider.Transformer, err = config.ResolveTransformerPresets(provider.Transformer)
+	if err != nil {
+		return fmt.Errorf("provider %q: %w", providerName, err)
+	}
+	if err := config.ValidateProvider(provider); err != nil {
+		return fmt.Errorf("provider %q: %w", providerName, err)
+	}
 	if provider.RequiresAuth() && !provider.HasAuth() {
 		return fmt.Errorf(
 			"provider %q requires authentication: set %s_API_KEY or configure authToken in %s",
@@ -77,7 +84,7 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 	}
 
 	if provider.Transformer.HasRules() {
-		return launcher.LaunchWithProxy(provider, cfg.Optimization, claudeArgs)
+		return launcher.LaunchWithProxyIO(ctx, provider, cfg.Optimization, claudeArgs, opts.Input, opts.Output, opts.ErrorOutput)
 	}
 
 	return launcher.ExecuteClaudeCode(
@@ -109,6 +116,11 @@ func extractProviderFromArgs(args []string) (string, []string, error) {
 
 	for i := start; i < len(args); i++ {
 		arg := args[i]
+
+		if arg == "--" {
+			result = append(result, args[i+1:]...)
+			break
+		}
 
 		if arg == providerFlag {
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {

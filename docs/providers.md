@@ -41,8 +41,8 @@ ccl --provider deepseek
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.deepseek.com/anthropic` |
-| Model | `deepseek-v4-pro` |
-| Small/Fast | `deepseek-v4-flash` |
+| Model | `deepseek-v4.1-flash` |
+| Small/Fast | `deepseek-v4.1-flash` |
 | Env var | `DEEPSEEK_API_KEY` |
 
 ### minimax
@@ -112,10 +112,10 @@ ccl -p wafer
 | Small/Fast | `GLM-5.1` (override: `WAFER_SMALL_MODEL`) |
 | Env var | `WAFER_API_KEY` |
 
-[Wafer Pass](https://docs.wafer.ai/wafer-pass) routes to frontier open models via an Anthropic-compatible endpoint. Available models include `GLM-5.1`, `DeepSeek-V4-Pro`, and `Qwen3.5-397B-A17B` (model names are case-insensitive). Override without editing config:
+[Wafer Pass](https://docs.wafer.ai/wafer-pass) routes to frontier open models via an Anthropic-compatible endpoint. Available models include `GLM-5.1`, `DeepSeek-V4.1-Flash`, and `Qwen3.5-397B-A17B` (model names are case-insensitive). Override without editing config:
 
 ```bash
-export WAFER_MODEL="DeepSeek-V4-Pro"
+export WAFER_MODEL="DeepSeek-V4.1-Flash"
 export WAFER_SMALL_MODEL="Qwen3.5-397B-A17B"
 ```
 
@@ -216,3 +216,9 @@ export CCL_DEEPSEEK_API_KEY="sk-other-key"    # overrides DEEPSEEK_API_KEY for d
 Full auth priority: `CCL_<PROVIDER>_API_KEY` > config `authToken` (with `${VAR}` interpolation) > built-in default.
 
 See [configuration.md](configuration.md) for the full interpolation reference.
+
+For names containing hyphens, credential overrides normalize them to underscores
+(`my-provider` uses `CCL_MY_PROVIDER_API_KEY`). The legacy hyphenated spelling is
+accepted only when the normalized variable is absent. Present empty values clear all
+configured credentials. Native Claude login remains available without a configured
+key for direct launches; request transformations require an upstream key.

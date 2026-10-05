@@ -28,3 +28,19 @@ func TestCLICommands(t *testing.T) {
 	})
 
 }
+
+func TestChildExitCode(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		script string
+		want   int
+	}{{"exit 7", 7}, {"kill -TERM $$", 143}} {
+		t.Run(tc.script, func(t *testing.T) {
+			t.Parallel()
+			err := exec.Command("sh", "-c", tc.script).Run()
+			if got := exitCode(err); got != tc.want {
+				t.Fatalf("code=%d want=%d err=%v", got, tc.want, err)
+			}
+		})
+	}
+}

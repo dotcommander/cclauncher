@@ -86,15 +86,15 @@ func TestGetProvider_Models(t *testing.T) {
 	require.NoError(t, err)
 
 	deepseek, _ := GetProvider(cfg, "deepseek")
-	assert.Equal(t, "deepseek-v4-pro", deepseek.Model)
-	assert.Equal(t, "deepseek-v4-flash", deepseek.SmallFastModel)
+	assert.Equal(t, "deepseek-v4.1-flash", deepseek.Model)
+	assert.Equal(t, "deepseek-v4.1-flash", deepseek.SmallFastModel)
 
 	synthetic, _ := GetProvider(cfg, "synthetic")
 	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.Model)
 	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.SmallFastModel)
 
 	openrouter, _ := GetProvider(cfg, "openrouter")
-	assert.Equal(t, "deepseek/deepseek-v4-pro", openrouter.Model)
+	assert.Equal(t, "deepseek/deepseek-v4.1-flash", openrouter.Model)
 	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.SmallFastModel)
 }
 
@@ -148,7 +148,7 @@ func TestLoad_MergesDefaultAuthPolicyForExistingConfigs(t *testing.T) {
     baseUrl: "https://api.anthropic.com"
   deepseek:
     baseUrl: "https://api.deepseek.com/anthropic"
-    model: "deepseek-v4-pro"
+    model: "deepseek-v4.1-flash"
   custom:
     baseUrl: "https://api.example.com/anthropic"
 cli:
@@ -288,33 +288,6 @@ func TestApplyOptDefaults_PreservesExplicitBooleansAndFillsNumericZeros(t *testi
 	assert.Equal(t, 8192, cfg.Optimization.NodeMaxOldSpaceSize)
 }
 
-func TestMergeDefaultProviders_PreservesUserProviderFields(t *testing.T) {
-	t.Parallel()
-
-	authRequired := false
-	cfg := &Config{
-		Providers: map[string]Provider{
-			"deepseek": {
-				BaseURL:        "https://custom.example.com/anthropic",
-				AuthToken:      "custom-token",
-				AuthRequired:   &authRequired,
-				Model:          "custom-model",
-				SmallFastModel: "custom-small",
-			},
-		},
-	}
-
-	mergeDefaultProviders(cfg)
-
-	deepseek := cfg.Providers["deepseek"]
-	assert.Equal(t, "https://custom.example.com/anthropic", deepseek.BaseURL)
-	assert.Equal(t, "custom-token", deepseek.AuthToken)
-	assert.Equal(t, "custom-model", deepseek.Model)
-	assert.Equal(t, "custom-small", deepseek.SmallFastModel)
-	assert.False(t, deepseek.RequiresAuth())
-	assert.Contains(t, cfg.Providers, "claude")
-}
-
 func TestOverrideFromEnv(t *testing.T) {
 	t.Setenv("CCL_TESTPROVIDER_API_KEY", "test-key-from-env")
 
@@ -327,10 +300,10 @@ func TestOverrideFromEnv(t *testing.T) {
 	overrideFromEnv(cfg)
 
 	provider := cfg.Providers["testprovider"]
-	assert.Equal(t, "test-key-from-env", provider.APIKey)
+	assert.Equal(t, "test-key-from-env", provider.AuthToken)
 }
 
-func TestOverrideFromEnv_DoesNotClearExistingAPIKeyWhenEnvEmpty(t *testing.T) {
+func TestOverrideFromEnv_ClearsExistingAPIKeyWhenEnvEmpty(t *testing.T) {
 	t.Setenv("CCL_TESTPROVIDER_API_KEY", "")
 
 	cfg := &Config{
@@ -341,28 +314,5 @@ func TestOverrideFromEnv_DoesNotClearExistingAPIKeyWhenEnvEmpty(t *testing.T) {
 
 	overrideFromEnv(cfg)
 
-	assert.Equal(t, "configured-key", cfg.Providers["testprovider"].APIKey)
-}
-
-func TestInterpolateProviderFields(t *testing.T) {
-	t.Setenv("TEST_AUTH_TOKEN", "token-value")
-	t.Setenv("TEST_MODEL", "model-value")
-
-	cfg := &Config{
-		Providers: map[string]Provider{
-			"test": {
-				BaseURL:        "https://example.com",
-				AuthToken:      "${TEST_AUTH_TOKEN}",
-				Model:          "${TEST_MODEL}",
-				SmallFastModel: "${TEST_MODEL}",
-			},
-		},
-	}
-
-	interpolateProviderFields(cfg)
-
-	provider := cfg.Providers["test"]
-	assert.Equal(t, "token-value", provider.AuthToken)
-	assert.Equal(t, "model-value", provider.Model)
-	assert.Equal(t, "model-value", provider.SmallFastModel)
+	assert.Empty(t, cfg.Providers["testprovider"].APIKey)
 }

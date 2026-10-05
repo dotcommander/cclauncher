@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,17 +31,22 @@ type Proxy struct {
 	client      *http.Client
 	listener    net.Listener
 	server      *http.Server
+	lifetime    context.Context
+	cancel      context.CancelFunc
 }
 
 // NewProxy creates a new proxy that forwards requests to providerURL.
 func NewProxy(providerURL, authToken, oauthToken string, rules []config.TransformRule) *Proxy {
+	lifetime, cancel := context.WithCancel(context.Background())
 	return &Proxy{
+		lifetime: lifetime, cancel: cancel,
 		providerURL: strings.TrimRight(providerURL, "/"),
 		authToken:   authToken,
 		oauthToken:  oauthToken,
 		rules:       rules,
 		client: &http.Client{
 			Transport: &http.Transport{
+				Proxy:               http.ProxyFromEnvironment,
 				DialContext:         (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
 				TLSHandshakeTimeout: 15 * time.Second,
 				IdleConnTimeout:     90 * time.Second,
@@ -60,6 +66,7 @@ func (p *Proxy) Start() (int, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/messages", p.handleMessages)
+	mux.HandleFunc("POST /v1/messages/count_tokens", p.handleMessages)
 
 	p.server = &http.Server{Handler: mux}
 
@@ -70,19 +77,31 @@ func (p *Proxy) Start() (int, error) {
 	}()
 
 	port := p.listener.Addr().(*net.TCPAddr).Port
-	slog.Info("proxy started", "port", port, "target", p.providerURL)
+	slog.Debug("proxy started", "port", port, "target", p.providerURL)
 	return port, nil
 }
 
 // Shutdown gracefully stops the proxy server.
 func (p *Proxy) Shutdown(ctx context.Context) error {
+	p.cancel()
+	if transport, ok := p.client.Transport.(*http.Transport); ok {
+		defer transport.CloseIdleConnections()
+	}
 	if p.server == nil {
 		return nil
 	}
-	return p.server.Shutdown(ctx)
+	if err := p.server.Shutdown(ctx); err != nil {
+		_ = p.server.Close()
+		return err
+	}
+	return nil
 }
 
 func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithCancel(r.Context())
+	stop := context.AfterFunc(p.lifetime, cancel)
+	defer func() { stop(); cancel() }()
+	r = r.WithContext(ctx)
 	defer r.Body.Close()
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	body, err := io.ReadAll(r.Body)
@@ -90,18 +109,18 @@ func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
 			slog.Warn("request body exceeds limit", "limit", maxRequestBodyBytes, "error", err)
-			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			writeError(w, http.StatusRequestEntityTooLarge, "request_too_large", "request body too large")
 			return
 		}
 		slog.Error("read request body", "error", err)
-		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid_request_error", "failed to read request body")
 		return
 	}
 
-	body, extraHeaders, err := ApplyRules(p.rules, body)
+	body, extraHeaders, err := applyRules(p.rules, body, r.URL.Path == "/v1/messages/count_tokens")
 	if err != nil {
 		slog.Error("apply transform rules", "error", err)
-		http.Error(w, "failed to apply transform rules", http.StatusInternalServerError)
+		writeError(w, http.StatusBadRequest, "invalid_request_error", "invalid request body")
 		return
 	}
 
@@ -110,7 +129,7 @@ func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
 	resp, err := p.forwardRequest(r, body, extraHeaders)
 	if err != nil {
 		slog.Error("forward request", "error", err)
-		http.Error(w, "failed to forward request", http.StatusBadGateway)
+		writeError(w, http.StatusBadGateway, "api_error", "failed to forward request")
 		return
 	}
 	defer resp.Body.Close()
@@ -129,7 +148,7 @@ func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) forwardRequest(orig *http.Request, body []byte, extraHeaders map[string]string) (*http.Response, error) {
-	targetURL := p.providerURL + "/v1/messages"
+	targetURL := p.providerURL + orig.URL.Path
 
 	req, err := http.NewRequestWithContext(
 		orig.Context(), http.MethodPost, targetURL,
@@ -143,15 +162,21 @@ func (p *Proxy) forwardRequest(orig *http.Request, body []byte, extraHeaders map
 	copyRequestHeader(req, orig, "anthropic-version", "2023-06-01")
 	copyRequestHeader(req, orig, "anthropic-beta", "")
 
+	for k, v := range extraHeaders {
+		if strings.EqualFold(k, "host") {
+			req.Host = v
+			continue
+		}
+		if strings.EqualFold(k, "authorization") || strings.EqualFold(k, "x-api-key") {
+			continue
+		}
+		req.Header.Set(k, v)
+	}
 	if p.authToken != "" {
 		req.Header.Set("x-api-key", p.authToken)
 	}
 	if p.oauthToken != "" {
 		req.Header.Set("Authorization", "Bearer "+p.oauthToken)
-	}
-
-	for k, v := range extraHeaders {
-		req.Header.Set(k, v)
 	}
 
 	return p.client.Do(req)
@@ -175,9 +200,15 @@ func copyResponseHeaders(w http.ResponseWriter, resp *http.Response) {
 		"Anthropic-Version",
 		"X-Request-Id",
 		"Request-Id",
+		"Retry-After",
 	} {
 		if v := resp.Header.Get(key); v != "" {
 			w.Header().Set(key, v)
+		}
+	}
+	for key, values := range resp.Header {
+		if strings.HasPrefix(strings.ToLower(key), "anthropic-ratelimit-") {
+			w.Header()[key] = append([]string(nil), values...)
 		}
 	}
 }
@@ -190,7 +221,7 @@ func (p *Proxy) streamSSE(ctx context.Context, w http.ResponseWriter, resp *http
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		slog.Error("response writer does not support flushing")
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		writeError(w, http.StatusBadGateway, "api_error", "streaming not supported")
 		return
 	}
 
@@ -202,7 +233,7 @@ func (p *Proxy) streamSSE(ctx context.Context, w http.ResponseWriter, resp *http
 		// Stop promptly when the downstream client disconnects or the proxy is
 		// shutting down, instead of draining the full upstream response.
 		if err := ctx.Err(); err != nil {
-			slog.Info("SSE stream canceled by client", "error", err)
+			slog.Debug("SSE stream canceled by client", "error", err)
 			return
 		}
 
@@ -221,7 +252,7 @@ func (p *Proxy) streamSSE(ctx context.Context, w http.ResponseWriter, resp *http
 			// A canceled request context surfaces here as a read error; log it
 			// as cancellation rather than a stream fault.
 			if ctx.Err() != nil {
-				slog.Info("SSE stream canceled by client", "error", ctx.Err())
+				slog.Debug("SSE stream canceled by client", "error", ctx.Err())
 				return
 			}
 			slog.Error("read SSE stream", "error", err)
@@ -235,14 +266,20 @@ func logRequestModel(body []byte) {
 	s := string(body)
 	idx := strings.Index(s, marker)
 	if idx < 0 {
-		slog.Info("proxy request", "model", "unknown")
+		slog.Debug("proxy request", "model", "unknown")
 		return
 	}
 	start := idx + len(marker)
 	end := strings.IndexByte(s[start:], '"')
 	if end < 0 {
-		slog.Info("proxy request", "model", "unknown")
+		slog.Debug("proxy request", "model", "unknown")
 		return
 	}
-	slog.Info("proxy request", "model", s[start:start+end])
+	slog.Debug("proxy request", "model", s[start:start+end])
+}
+
+func writeError(w http.ResponseWriter, status int, kind, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"type": "error", "error": map[string]string{"type": kind, "message": message}})
 }

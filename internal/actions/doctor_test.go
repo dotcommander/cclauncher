@@ -90,3 +90,19 @@ func TestProbeReachability(t *testing.T) {
 		assert.Contains(t, r.Reason, "unreachable")
 	})
 }
+
+func TestProbeNilClient(t *testing.T) {
+	t.Parallel()
+	got := ProbeReachability(context.Background(), nil, "p", config.Provider{BaseURL: "https://example.com"})
+	if got.Status != StatusWarn {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestDoctorTrailingSlashWarning(t *testing.T) {
+	t.Parallel()
+	got := checkBaseURL("p", config.Provider{BaseURL: "https://example.com/v1///"})
+	if got.Status != StatusWarn {
+		t.Fatalf("got %+v", got)
+	}
+}

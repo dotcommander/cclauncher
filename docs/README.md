@@ -58,7 +58,7 @@ Only CCL's provider selector is consumed. Other flags pass through to
 ccl
 ```
 
-Bare `ccl` opens the provider picker at an interactive terminal. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only. When stdin is not a terminal, bare `ccl` uses that default without prompting.
+Bare `ccl` opens the provider picker at an interactive terminal. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only. Both supplied input and output must be terminals; redirects use that default without prompting. Launch arguments skip the picker.
 
 Set `cli.defaultProvider` by editing `~/.config/cclauncher/config.yaml`.
 

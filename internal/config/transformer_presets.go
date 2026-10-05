@@ -20,12 +20,12 @@ var transformerPresetRegistry = map[string][]TransformRule{
 }
 
 func tokenRange(min, max int) struct {
-	Min int `json:"min,omitempty" yaml:"min,omitempty"`
-	Max int `json:"max,omitempty" yaml:"max,omitempty"`
+	Min int `json:"min,omitempty" yaml:"min"`
+	Max int `json:"max,omitempty" yaml:"max"`
 } {
 	return struct {
-		Min int `json:"min,omitempty" yaml:"min,omitempty"`
-		Max int `json:"max,omitempty" yaml:"max,omitempty"`
+		Min int `json:"min,omitempty" yaml:"min"`
+		Max int `json:"max,omitempty" yaml:"max"`
 	}{Min: min, Max: max}
 }
 
@@ -42,7 +42,7 @@ func TransformerPresetNames() []string {
 // ResolveTransformerPresets expands transformer.use into concrete rules.
 func ResolveTransformerPresets(t TransformerConfig) (TransformerConfig, error) {
 	if len(t.Use) == 0 {
-		return t, nil
+		return TransformerConfig{Rules: cloneTransformRules(t.Rules)}, nil
 	}
 
 	rules := make([]TransformRule, 0, len(t.Rules)+len(t.Use))
@@ -53,27 +53,25 @@ func ResolveTransformerPresets(t TransformerConfig) (TransformerConfig, error) {
 		}
 		rules = append(rules, cloneTransformRules(presetRules)...)
 	}
-	rules = append(rules, t.Rules...)
+	rules = append(rules, cloneTransformRules(t.Rules)...)
 	t.Rules = rules
+	t.Use = nil
 	return t, nil
-}
-
-func resolveTransformerPresets(cfg *Config) error {
-	for name, provider := range cfg.Providers {
-		resolved, err := ResolveTransformerPresets(provider.Transformer)
-		if err != nil {
-			return fmt.Errorf("provider %q: %w", name, err)
-		}
-		provider.Transformer = resolved
-		cfg.Providers[name] = provider
-	}
-	return nil
 }
 
 func cloneTransformRules(in []TransformRule) []TransformRule {
 	out := make([]TransformRule, len(in))
 	for i, rule := range in {
 		out[i] = rule
+		if rule.SetTemperature != nil {
+			v := *rule.SetTemperature
+			out[i].SetTemperature = &v
+		}
+		if rule.ResponseFormat != nil {
+			v := *rule.ResponseFormat
+			v.JSONSchema = cloneAnyMap(v.JSONSchema)
+			out[i].ResponseFormat = &v
+		}
 		if rule.AddHeaders != nil {
 			out[i].AddHeaders = cloneStringMap(rule.AddHeaders)
 		}
@@ -93,9 +91,26 @@ func cloneStringMap(in map[string]string) map[string]string {
 }
 
 func cloneAnyMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
 	out := make(map[string]any, len(in))
 	for k, v := range in {
-		out[k] = v
+		out[k] = cloneAny(v)
 	}
 	return out
+}
+func cloneAny(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		return cloneAnyMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, v := range x {
+			out[i] = cloneAny(v)
+		}
+		return out
+	default:
+		return v
+	}
 }

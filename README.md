@@ -38,7 +38,7 @@ ccl --provider deepseek              # this session only; skips the picker
 ccl --provider synthetic "fix the null pointer in main.go"
 ```
 
-Arguments after the provider flag pass through to `claude` unchanged.
+Launch arguments other than CCL provider selectors pass through to `claude` unchanged. The first `--` is consumed by CCL and ends provider parsing; subsequent arguments, including later `--` delimiters, pass through.
 
 | Command | Description |
 |---------|-------------|
@@ -48,7 +48,7 @@ Arguments after the provider flag pass through to `claude` unchanged.
 | `ccl update [--check]` | Update CCL |
 | `ccl version` | Print the version |
 
-**Note on `-p`:** CCL uses `-p` for `--provider`; Claude Code uses `-p` for print mode. The first `-p`/`--provider` goes to CCL, everything after passes through to `claude`.
+**Note on `-p`:** CCL uses `-p` for `--provider`; Claude Code uses `-p` for print mode. Only a leading `-p PROVIDER` pair belongs to CCL. Later `-p` arguments belong to Claude Code. CCL recognizes `--provider` before its first `--` delimiter.
 
 ```bash
 ccl -p deepseek -p "fix this bug"   # provider=deepseek, claude in print mode
@@ -89,7 +89,7 @@ Endpoints, environment variables, and per-provider notes: [docs/providers.md](do
 
 On first run, CCL writes `~/.config/cclauncher/config.yaml` with all providers filled in. You supply the API key through an environment variable; CCL can't guess it.
 
-Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects the configured default, so press Enter to launch it or pick another provider for that launch only. In pipes or CI, bare `ccl` uses the configured default without prompting.
+Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects the configured default, so press Enter to launch it or pick another provider for that launch only. Both input and output must be terminals for the picker. With redirected input or output, bare `ccl` uses the configured default without prompting. Launches with arguments also use that default unless a provider is selected.
 
 Set that default by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 
@@ -115,7 +115,17 @@ ccl doctor --check-net             # also probe provider reachability
 `ccl doctor` checks credentials, required fields, and base URLs without making
 network requests. Add `--check-net` when you also want reachability probes.
 Missing optional credentials are warnings; invalid required configuration exits
-non-zero.
+non-zero. Network probes run concurrently with `doctor.probeConcurrency` from YAML
+(default 4; set 1 for sequential probes), preserve sorted provider order, and stop
+on caller cancellation. Each probe is limited to five seconds.
+
+Standalone `ccl --help`, `ccl help`, and local command help do not load configuration.
+Use `ccl -- --help` or `ccl --provider deepseek --help` for Claude Code help.
+
+`ccl update --check` requires no Go compiler. Release lookup has a ten-second
+limit; installation retains caller cancellation without that lookup deadline.
+Only a newer stable numeric version is installed. Development, malformed, and
+prerelease versions are indeterminate and skip installation.
 
 ## Development
 

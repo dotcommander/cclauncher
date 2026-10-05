@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 )
@@ -278,8 +279,8 @@ func TestInterpolateEnvVarsRecursive_Nested(t *testing.T) {
 
 func TestParseVarExpr(t *testing.T) {
 	tests := []struct {
-		match      string
-		wantName   string
+		match       string
+		wantName    string
 		wantDefault string
 	}{
 		{"${VAR_NAME}", "VAR_NAME", ""},
@@ -343,4 +344,13 @@ func BenchmarkInterpolateEnvVars_Complex(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = InterpolateEnvVars(input, false)
 	}
+}
+
+func TestInterpolationEmptyFallbackAndNestedSource(t *testing.T) {
+	t.Parallel()
+	value, err := InterpolateEnvVars("${CCL_TEST_MISSING_442:-}", true)
+	require.NoError(t, err)
+	require.Empty(t, value)
+	_, err = InterpolateEnvVars("${CCL_TEST_MISSING_442:-${SECOND}}", false)
+	require.Error(t, err)
 }

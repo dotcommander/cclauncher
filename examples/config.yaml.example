@@ -19,8 +19,8 @@ providers:
     authRequired: true
     baseUrl: "https://api.deepseek.com/anthropic"
     authToken: "${DEEPSEEK_API_KEY}"
-    model: "deepseek-v4-pro"
-    smallFastModel: "deepseek-v4-flash"
+    model: "deepseek-v4.1-flash"
+    smallFastModel: "deepseek-v4.1-flash"
   minimax:
     authRequired: true
     baseUrl: "https://api.minimax.io/anthropic"
@@ -37,7 +37,7 @@ providers:
     authRequired: true
     baseUrl: "https://openrouter.ai/api"
     authToken: "${OPENROUTER_API_KEY}"
-    model: "deepseek/deepseek-v4-pro"
+    model: "deepseek/deepseek-v4.1-flash"
     smallFastModel: "deepseek/deepseek-v3.2"
   wafer:
     authRequired: true
@@ -73,6 +73,9 @@ providers:
     model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"
     smallFastModel: "${OMLX_SMALL_MODEL:-gemma-4-e2b-it-4bit}"
 
+doctor:
+  probeConcurrency: 4
+
 cli:
   defaultProvider: "zai"
 
@@ -93,9 +96,9 @@ optimization:
 # if there is no ":", the provider segment doesn't match, or the model is empty.
 # The slots below `default` are parsed but currently inert (no effect).
 # router:
-#   default: "deepseek:deepseek-v4-pro"
+#   default: "deepseek:deepseek-v4.1-flash"
 #   # Reserved — parsed but not yet consumed:
-#   # background: "deepseek:deepseek-v4-flash"
+#   # background: "deepseek:deepseek-v4.1-flash"
 #   # longContext: "openrouter:deepseek/deepseek-v3.2"
 #   # think: "openrouter:anthropic/claude-sonnet-4.5"
 #   # webSearch: "zai:glm-4.7"

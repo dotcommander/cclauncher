@@ -1,12 +1,12 @@
 package config
 
 import (
-	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/dotcommander/cclauncher/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,31 +18,36 @@ var Version = "dev"
 
 // Config is the main configuration for CCL
 type Config struct {
+	Doctor       DoctorConfig        `json:"doctor,omitempty" yaml:"doctor,omitempty"`
 	Providers    map[string]Provider `json:"providers" yaml:"providers"`
 	Router       RouterConfig        `json:"router,omitempty" yaml:"router,omitempty"`
 	CLI          CLIConfig           `json:"cli,omitempty" yaml:"cli,omitempty"`
 	Optimization OptimizationConfig  `json:"optimization,omitempty" yaml:"optimization,omitempty"`
 }
 
+type DoctorConfig struct {
+	ProbeConcurrency int `json:"probeConcurrency" yaml:"probeConcurrency"`
+}
+
 // RouterConfig defines model routing configuration
 type RouterConfig struct {
-	Default              string `json:"default,omitempty" yaml:"default,omitempty"`
-	Background           string `json:"background,omitempty" yaml:"background,omitempty"`
-	LongContext          string `json:"longContext,omitempty" yaml:"longContext,omitempty"`
-	Think                string `json:"think,omitempty" yaml:"think,omitempty"`
-	WebSearch            string `json:"webSearch,omitempty" yaml:"webSearch,omitempty"`
-	LongContextThreshold int    `json:"longContextThreshold,omitempty" yaml:"longContextThreshold,omitempty"`
+	Default              string `json:"default,omitempty" yaml:"default"`
+	Background           string `json:"background,omitempty" yaml:"background"`
+	LongContext          string `json:"longContext,omitempty" yaml:"longContext"`
+	Think                string `json:"think,omitempty" yaml:"think"`
+	WebSearch            string `json:"webSearch,omitempty" yaml:"webSearch"`
+	LongContextThreshold int    `json:"longContextThreshold,omitempty" yaml:"longContextThreshold"`
 }
 
 // Provider defines an LLM provider configuration
 type Provider struct {
-	APIKey         string            `json:"apiKey,omitempty" yaml:"apiKey,omitempty"`
-	AuthToken      string            `json:"authToken,omitempty" yaml:"authToken,omitempty"`
-	OAuthToken     string            `json:"oauthToken,omitempty" yaml:"oauthToken,omitempty"`
+	APIKey         string            `json:"apiKey,omitempty" yaml:"apiKey"`
+	AuthToken      string            `json:"authToken,omitempty" yaml:"authToken"`
+	OAuthToken     string            `json:"oauthToken,omitempty" yaml:"oauthToken"`
 	AuthRequired   *bool             `json:"authRequired,omitempty" yaml:"authRequired,omitempty"`
-	BaseURL        string            `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
-	Model          string            `json:"model,omitempty" yaml:"model,omitempty"`
-	SmallFastModel string            `json:"smallFastModel,omitempty" yaml:"smallFastModel,omitempty"`
+	BaseURL        string            `json:"baseUrl,omitempty" yaml:"baseUrl"`
+	Model          string            `json:"model,omitempty" yaml:"model"`
+	SmallFastModel string            `json:"smallFastModel,omitempty" yaml:"smallFastModel"`
 	Transformer    TransformerConfig `json:"transformer,omitempty" yaml:"transformer,omitempty"`
 }
 
@@ -66,27 +71,16 @@ func (p Provider) AuthCredential() string {
 	return p.APIKey
 }
 
-// interpolated returns a copy of the Provider with all ${VAR} templates resolved.
-func (p Provider) interpolated() Provider {
-	p.BaseURL, _ = utils.InterpolateEnvVars(p.BaseURL, false)
-	p.AuthToken, _ = utils.InterpolateEnvVars(p.AuthToken, false)
-	p.OAuthToken, _ = utils.InterpolateEnvVars(p.OAuthToken, false)
-	p.APIKey, _ = utils.InterpolateEnvVars(p.APIKey, false)
-	p.Model, _ = utils.InterpolateEnvVars(p.Model, false)
-	p.SmallFastModel, _ = utils.InterpolateEnvVars(p.SmallFastModel, false)
-	return p
-}
-
 // OptimizationConfig defines Claude Code optimization and performance settings
 type OptimizationConfig struct {
-	DisableNonessentialTraffic bool `json:"disableNonessentialTraffic,omitempty" yaml:"disableNonessentialTraffic,omitempty"`
-	DisableAutoupdater         bool `json:"disableAutoupdater,omitempty" yaml:"disableAutoupdater,omitempty"`
-	DisableTelemetry           bool `json:"disableTelemetry,omitempty" yaml:"disableTelemetry,omitempty"`
-	DisableErrorReporting      bool `json:"disableErrorReporting,omitempty" yaml:"disableErrorReporting,omitempty"`
-	DisableCostWarnings        bool `json:"disableCostWarnings,omitempty" yaml:"disableCostWarnings,omitempty"`
-	APITimeoutMs               int  `json:"apiTimeoutMs,omitempty" yaml:"apiTimeoutMs,omitempty"`
-	MaxOutputTokens            int  `json:"maxOutputTokens,omitempty" yaml:"maxOutputTokens,omitempty"`
-	NodeMaxOldSpaceSize        int  `json:"nodeMaxOldSpaceSize,omitempty" yaml:"nodeMaxOldSpaceSize,omitempty"`
+	DisableNonessentialTraffic bool `json:"disableNonessentialTraffic,omitempty" yaml:"disableNonessentialTraffic"`
+	DisableAutoupdater         bool `json:"disableAutoupdater,omitempty" yaml:"disableAutoupdater"`
+	DisableTelemetry           bool `json:"disableTelemetry,omitempty" yaml:"disableTelemetry"`
+	DisableErrorReporting      bool `json:"disableErrorReporting,omitempty" yaml:"disableErrorReporting"`
+	DisableCostWarnings        bool `json:"disableCostWarnings,omitempty" yaml:"disableCostWarnings"`
+	APITimeoutMs               int  `json:"apiTimeoutMs,omitempty" yaml:"apiTimeoutMs"`
+	MaxOutputTokens            int  `json:"maxOutputTokens,omitempty" yaml:"maxOutputTokens"`
+	NodeMaxOldSpaceSize        int  `json:"nodeMaxOldSpaceSize,omitempty" yaml:"nodeMaxOldSpaceSize"`
 }
 
 // TransformerConfig defines request/response transformation settings
@@ -102,15 +96,15 @@ func (t TransformerConfig) HasRules() bool {
 
 // TransformRule defines a conditional transformation rule
 type TransformRule struct {
-	ModelPattern   string `json:"modelPattern,omitempty" yaml:"modelPattern,omitempty"`
-	MessagePattern string `json:"messagePattern,omitempty" yaml:"messagePattern,omitempty"`
+	ModelPattern   string `json:"modelPattern,omitempty" yaml:"modelPattern"`
+	MessagePattern string `json:"messagePattern,omitempty" yaml:"messagePattern"`
 	TokenRange     struct {
-		Min int `json:"min,omitempty" yaml:"min,omitempty"`
-		Max int `json:"max,omitempty" yaml:"max,omitempty"`
+		Min int `json:"min,omitempty" yaml:"min"`
+		Max int `json:"max,omitempty" yaml:"max"`
 	} `json:"tokenRange,omitempty" yaml:"tokenRange,omitempty"`
 
-	SetModel       string            `json:"setModel,omitempty" yaml:"setModel,omitempty"`
-	SetMaxTokens   int               `json:"setMaxTokens,omitempty" yaml:"setMaxTokens,omitempty"`
+	SetModel       string            `json:"setModel,omitempty" yaml:"setModel"`
+	SetMaxTokens   int               `json:"setMaxTokens,omitempty" yaml:"setMaxTokens"`
 	SetTemperature *float64          `json:"setTemperature,omitempty" yaml:"setTemperature,omitempty"`
 	AddHeaders     map[string]string `json:"addHeaders,omitempty" yaml:"addHeaders,omitempty"`
 	ModifyBody     map[string]any    `json:"modifyBody,omitempty" yaml:"modifyBody,omitempty"`
@@ -126,18 +120,22 @@ type ResponseFormat struct {
 
 // CLIConfig contains CLI-specific configuration
 type CLIConfig struct {
-	DefaultProvider string `json:"defaultProvider,omitempty" yaml:"defaultProvider,omitempty"`
+	DefaultProvider string `json:"defaultProvider,omitempty" yaml:"defaultProvider"`
 }
 
 // Loader handles configuration loading with injectable paths
 type Loader struct {
 	homeDir    string
+	initErr    error
 	configFile string
 }
 
 // NewLoader creates a Loader with default paths
 func NewLoader() *Loader {
-	return NewLoaderWithPaths(getDefaultHomeDir(), getDefaultConfigFile())
+	home, err := defaultHomeDir()
+	l := NewLoaderWithPaths(home, filepath.Join(home, "config.yaml"))
+	l.initErr = err
+	return l
 }
 
 // NewLoaderWithPaths creates a Loader with custom paths (for testing)
@@ -162,12 +160,21 @@ func EnsureExists() (bool, error) {
 // EnsureExists creates the config directory and writes the default config
 // file if one doesn't already exist. Returns true if a new file was created.
 func (l *Loader) EnsureExists() (bool, error) {
+	if l.initErr != nil {
+		return false, l.initErr
+	}
+	if _, err := os.Lstat(l.configFile); err == nil {
+		if info, err := os.Stat(l.configFile); err != nil {
+			return false, fmt.Errorf("stat existing config: %w", err)
+		} else if !info.Mode().IsRegular() {
+			return false, fmt.Errorf("existing config must be a regular file")
+		}
+		return false, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return false, fmt.Errorf("stat config: %w", err)
+	}
 	if err := os.MkdirAll(l.homeDir, 0700); err != nil {
 		return false, fmt.Errorf("create config directory: %w", err)
-	}
-
-	if _, err := os.Stat(l.configFile); err == nil {
-		return false, nil
 	}
 
 	if err := writeFileAtomic(l.configFile, defaultConfigYAML, 0600); err != nil {
@@ -198,30 +205,15 @@ func Load() (*Config, error) {
 
 // Load reads and parses the config file
 func (l *Loader) Load() (*Config, error) {
+	if l.initErr != nil {
+		return nil, l.initErr
+	}
 	data, err := os.ReadFile(l.configFile)
 	if err != nil {
 		return nil, fmt.Errorf("read config file: %w", err)
 	}
+	return parseConfig(data)
 
-	dataStr, err := utils.InterpolateEnvVars(string(data), false)
-	if err != nil {
-		return nil, fmt.Errorf("interpolate environment variables: %w", err)
-	}
-
-	var cfg Config
-	if err := yaml.Unmarshal([]byte(dataStr), &cfg); err != nil {
-		return nil, fmt.Errorf("parse config: %w", err)
-	}
-
-	applyDefaults(&cfg)
-	mergeDefaultProviders(&cfg)
-	interpolateProviderFields(&cfg)
-	overrideFromEnv(&cfg)
-	if err := resolveTransformerPresets(&cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
 }
 
 // Save writes the config to disk (package-level convenience function)
@@ -231,6 +223,9 @@ func Save(cfg *Config) error {
 
 // Save writes the config to disk
 func (l *Loader) Save(cfg *Config) error {
+	if l.initErr != nil {
+		return l.initErr
+	}
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
@@ -246,32 +241,20 @@ func (l *Loader) Save(cfg *Config) error {
 // DefaultConfig returns the default configuration with optimization settings.
 // Providers are loaded from the YAML template via EnsureExists or Load.
 func DefaultConfig() *Config {
-	return &Config{
-		Providers:    make(map[string]Provider),
-		CLI:          CLIConfig{DefaultProvider: "zai"},
-		Optimization: defaultOptimization(),
-	}
-}
-
-type contextKey string
-
-const cfgContextKey contextKey = "config"
-
-// StoreInContext returns a new context with the config stored.
-func StoreInContext(ctx context.Context, cfg *Config) context.Context {
-	return context.WithValue(ctx, cfgContextKey, cfg)
-}
-
-// FromContext extracts the config from a context. Returns nil if not present.
-func FromContext(ctx context.Context) *Config {
-	cfg, _ := ctx.Value(cfgContextKey).(*Config)
-	return cfg
+	var cfg Config
+	_ = yaml.Unmarshal(defaultConfigYAML, &cfg)
+	cfg.Providers = make(map[string]Provider)
+	return &cfg
 }
 
 // SetDefaultProvider updates only the cli.defaultProvider field in the config
 // file on disk. It uses yaml.Node to preserve comments and env-var templates.
 func SetDefaultProvider(name string) error {
-	path := GetConfigPath()
+	l := NewLoader()
+	if l.initErr != nil {
+		return l.initErr
+	}
+	path := l.ConfigPath()
 
 	data, err := os.ReadFile(path)
 	if err != nil {

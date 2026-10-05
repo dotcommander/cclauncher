@@ -3,6 +3,7 @@ package launcher
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -92,7 +93,7 @@ func ExecuteClaudeCode(env []string, args []string) error {
 		return err
 	}
 	// argv[0] is the command name by convention
-	argv := append([]string{"claude"}, args...)
+	argv := append([]string{claudePath}, args...)
 	return syscall.Exec(claudePath, argv, env)
 }
 
@@ -100,26 +101,71 @@ func ExecuteClaudeCode(env []string, args []string) error {
 // Claude Code as a child pointed at the proxy. The Go process stays alive
 // until Claude exits so the proxy can serve requests.
 func LaunchWithProxy(p config.Provider, opt config.OptimizationConfig, args []string) error {
-	srv := proxy.NewProxy(p.BaseURL, p.AuthCredential(), p.OAuthToken, p.Transformer.Rules)
+	return LaunchWithProxyContext(context.Background(), p, opt, args)
+}
 
+func LaunchWithProxyContext(ctx context.Context, p config.Provider, opt config.OptimizationConfig, args []string) error {
+	return LaunchWithProxyIO(ctx, p, opt, args, os.Stdin, os.Stdout, os.Stderr)
+}
+
+// LaunchWithProxyIO keeps the child's terminal and streams while supervising cleanup.
+func LaunchWithProxyIO(ctx context.Context, p config.Provider, opt config.OptimizationConfig, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	var err error
+	p.Transformer, err = config.ResolveTransformerPresets(p.Transformer)
+	if err != nil {
+		return err
+	}
+	if err = config.ValidateProvider(p); err != nil {
+		return err
+	}
+	srv := proxy.NewProxy(p.BaseURL, p.AuthCredential(), p.OAuthToken, p.Transformer.Rules)
 	port, err := srv.Start()
 	if err != nil {
 		return fmt.Errorf("start proxy: %w", err)
 	}
-	slog.Info("proxy listening", "port", port)
-
-	// Redirect Claude at the local proxy; the proxy handles upstream auth.
-	p.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-	p.AuthToken, p.APIKey, p.OAuthToken = "", "", ""
-
-	claudeErr := runClaude(SetupEnvironment(p, opt), args)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	slog.Debug("proxy listening", "port", port)
+	p = localProxyProvider(p, port)
+	claudeErr := runClaudeContext(ctx, proxyEnvironment(SetupEnvironment(p, opt)), args, stdin, stdout, stderr)
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("proxy shutdown", "error", err)
 	}
 	return claudeErr
+}
+
+// Preserve each existing exclusion list in the child environment only.
+func proxyEnvironment(env []string) []string {
+	out := make([]string, 0, len(env)+2)
+	values := map[string]string{}
+	for _, entry := range env {
+		key, value, _ := strings.Cut(entry, "=")
+		if key == "NO_PROXY" || key == "no_proxy" {
+			values[key] = value
+			continue
+		}
+		out = append(out, entry)
+	}
+	for _, key := range []string{"NO_PROXY", "no_proxy"} {
+		value := values[key]
+		for _, host := range []string{"127.0.0.1", "localhost", "::1"} {
+			found := false
+			for _, existing := range strings.Split(value, ",") {
+				if strings.TrimSpace(existing) == host {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if value != "" {
+					value += ","
+				}
+				value += host
+			}
+		}
+		out = append(out, key+"="+value)
+	}
+	return out
 }
 
 // findClaude locates the claude binary in PATH.
@@ -133,15 +179,19 @@ func findClaude() (string, error) {
 
 // runClaude spawns claude as a child process, wiring stdio and waiting for exit.
 func runClaude(env, args []string) error {
+	return runClaudeContext(context.Background(), env, args, os.Stdin, os.Stdout, os.Stderr)
+}
+
+func runClaudeContext(ctx context.Context, env, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	claudePath, err := findClaude()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(claudePath, args...)
-	cmd.Env = env
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("claude exited: %w", err)
-	}
-	return nil
+	return superviseChild(ctx, claudePath, env, args, stdin, stdout, stderr)
+}
+
+func localProxyProvider(p config.Provider, port int) config.Provider {
+	p.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	p.AuthToken, p.APIKey, p.OAuthToken = "ccl-local-proxy", "", ""
+	return p
 }

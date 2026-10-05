@@ -97,3 +97,12 @@ func TestDoctorFlagsParse(t *testing.T) {
 		t.Fatalf("doctor = %#v", tree.Doctor)
 	}
 }
+
+func TestLaunchHelpIsForwarded(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{{"--provider", "x", "--help"}, {"-p", "x", "-h"}, {"--", "--help"}, {"prompt", "--help"}, {"doctor", "--", "--help"}} {
+		if _, local, err := requestedHelp(args); err != nil || local {
+			t.Fatalf("%v: local=%v err=%v", args, local, err)
+		}
+	}
+}

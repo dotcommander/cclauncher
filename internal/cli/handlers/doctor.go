@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"sync"
 
 	lipgloss "charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
@@ -44,12 +45,21 @@ func HandleDoctor(ctx context.Context, out io.Writer, cfg *config.Config, opts D
 		client = &http.Client{Timeout: actions.DoctorNetTimeout}
 	}
 
-	var results []actions.CheckResult
-	for _, name := range names {
-		p := cfg.Providers[name]
-		results = append(results, actions.RunChecks(name, p)...)
+	results := make([]actions.CheckResult, 0)
+	var probes []actions.CheckResult
+	if opts.CheckNet {
+		if cfg.Doctor.ProbeConcurrency <= 0 {
+			return fmt.Errorf("doctor.probeConcurrency must be positive")
+		}
+		probes, err = probeProviders(ctx, client, names, cfg.Providers, cfg.Doctor.ProbeConcurrency)
+		if err != nil {
+			return err
+		}
+	}
+	for i, name := range names {
+		results = append(results, actions.RunChecks(name, cfg.Providers[name])...)
 		if opts.CheckNet {
-			results = append(results, actions.ProbeReachability(ctx, client, name, p))
+			results = append(results, probes[i])
 		}
 	}
 
@@ -115,4 +125,40 @@ func anyFail(results []actions.CheckResult) bool {
 		}
 	}
 	return false
+}
+
+// Workers stop on caller cancellation or after the finite provider list is drained.
+func probeProviders(ctx context.Context, client *http.Client, names []string, providers map[string]config.Provider, concurrency int) ([]actions.CheckResult, error) {
+	results := make([]actions.CheckResult, len(names))
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	for range min(concurrency, len(names)) {
+		workers.Go(func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case i, ok := <-jobs:
+					if !ok {
+						return
+					}
+					results[i] = actions.ProbeReachability(ctx, client, names[i], providers[names[i]])
+				}
+			}
+		})
+	}
+feed:
+	for i := range names {
+		select {
+		case <-ctx.Done():
+			break feed
+		case jobs <- i:
+		}
+	}
+	close(jobs)
+	workers.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
 }

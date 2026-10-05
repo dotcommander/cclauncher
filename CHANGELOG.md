@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.3 (2026-10-04)
+
+### Added
+
+- Validate and normalize provider configuration, credentials, and request transformations with clearer diagnostics.
+- Support terminal-aware provider selection, cancellable provider health checks, and bounded release checks.
+- Preserve Claude terminal and cancellation behavior while proxying Anthropic Messages and token-count requests.
+
+### Changed
+
+- Document configuration, provider, proxy, terminal, and update behavior for the current implementation.
+- Resolve transformer presets per launch without mutating shared preset state.
+
 ## v0.5.2 (2026-07-22)
 
 ### Fixed

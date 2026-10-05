@@ -3,21 +3,10 @@ package config
 import (
 	"os"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 func defaultOptimization() OptimizationConfig {
-	return OptimizationConfig{
-		DisableNonessentialTraffic: true,
-		DisableAutoupdater:         true,
-		DisableTelemetry:           true,
-		DisableErrorReporting:      true,
-		DisableCostWarnings:        true,
-		APITimeoutMs:               3000000,
-		MaxOutputTokens:            200000,
-		NodeMaxOldSpaceSize:        8192,
-	}
+	return DefaultConfig().Optimization
 }
 
 func applyDefaults(cfg *Config) {
@@ -49,51 +38,19 @@ func applyOptDefaults(cfg *Config) {
 	}
 }
 
-// mergeDefaultProviders carries shipped providers and non-secret provider
-// policy from the embedded defaults into existing user configs. User-defined
-// provider fields win when a provider already exists.
-func mergeDefaultProviders(cfg *Config) {
-	var defaults Config
-	if err := yaml.Unmarshal(defaultConfigYAML, &defaults); err != nil {
-		return
-	}
-
-	if cfg.Providers == nil {
-		cfg.Providers = make(map[string]Provider, len(defaults.Providers))
-	}
-
-	for name, defaultProvider := range defaults.Providers {
-		if _, ok := cfg.Providers[name]; !ok {
-			cfg.Providers[name] = defaultProvider
-		}
-	}
-
-	for name, provider := range cfg.Providers {
-		defaultProvider, ok := defaults.Providers[name]
-		if !ok {
-			continue
-		}
-		if provider.AuthRequired == nil {
-			provider.AuthRequired = defaultProvider.AuthRequired
-			cfg.Providers[name] = provider
-		}
-	}
-}
-
-// interpolateProviderFields resolves any ${VAR} templates in provider fields
-// that were filled by applyDefaults after the initial YAML interpolation pass.
-func interpolateProviderFields(cfg *Config) {
-	for name, p := range cfg.Providers {
-		cfg.Providers[name] = p.interpolated()
-	}
-}
-
 func overrideFromEnv(cfg *Config) {
-	for name, provider := range cfg.Providers {
-		envKey := "CCL_" + strings.ToUpper(name) + "_API_KEY"
-		if apiKey := os.Getenv(envKey); apiKey != "" {
-			provider.APIKey = apiKey
-			cfg.Providers[name] = provider
+	for name, p := range cfg.Providers {
+		legacy := "CCL_" + strings.ToUpper(name) + "_API_KEY"
+		normalized := strings.ReplaceAll(legacy, "-", "_")
+		value, ok := os.LookupEnv(normalized)
+		if !ok {
+			value, ok = os.LookupEnv(legacy)
+		}
+		if ok {
+			p.AuthToken = value
+			p.APIKey = ""
+			p.OAuthToken = ""
+			cfg.Providers[name] = p
 		}
 	}
 }

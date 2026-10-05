@@ -78,6 +78,37 @@ myprovider:
 Preset rules run before inline `transformer.rules`. Unknown preset names fail
 config loading; they are not ignored. See [../configuration.md](../configuration.md#transformer-presets-advanced) for the preset list and acceptance checklist.
 
+Exact `"*"` matches every model or request. Other model patterns are substring
+matches. `messagePattern` searches the original raw JSON request, including
+metadata, model names, punctuation and JSON escaping; it does not search only
+message text. Rules run in order, and later model/token conditions see mutations
+from earlier rules. Requests with no matching rule keep their original bytes.
+
+The proxy supports both `/v1/messages` and `/v1/messages/count_tokens`. Counting
+requests accept model, header and appropriate body edits, but setters and
+`modifyBody` cannot add `max_tokens`, `temperature`, `top_p`, `top_k`,
+`stop_sequences` or `stream`. Token-range conditions require `max_tokens` to be
+present. `responseFormat` is unsupported and fails configuration validation.
+
+Transformed launches require configured upstream credentials, including native
+Anthropic launches. Direct native launches continue to use Claude's own login.
+The child receives a fixed local placeholder credential; real credentials stay
+in the proxy. Configured authentication overrides incoming or transform header
+credentials. A configured `Host` header sets the upstream HTTP Host.
+
+Upstream traffic honors environment proxy settings. Child-only `NO_PROXY` and
+`no_proxy` lists preserve existing entries and include localhost, 127.0.0.1 and
+::1. The proxy retains upstream errors, request IDs, retry instructions and
+Anthropic rate-limit metadata. Local invalid requests return JSON errors with
+400, oversized requests with 413 and transport failures with 502.
+
+Claude shares the foreground terminal. Terminal Ctrl-C reaches Claude directly;
+controlled parent cancellation uses SIGTERM or caller cancellation, with a
+five-second grace period before killing an unresponsive child. Child exit and
+signal status survive proxy cleanup. Active streams are canceled on child exit;
+cleanup then has an independent five-second budget. Routine proxy events are
+logged only at DEBUG.
+
 ## Adding to the Default Config
 
 To include a provider in the config template shipped with CCL (so new users get it on first run), edit `internal/config/default-config.yaml`, then regenerate the committed examples:

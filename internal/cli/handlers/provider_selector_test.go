@@ -34,7 +34,7 @@ func TestPickProvider(t *testing.T) {
 	cfg := &config.Config{
 		Providers: map[string]config.Provider{
 			"zai":      {Model: "glm-4.7"},
-			"deepseek": {Model: "deepseek-v4-pro"},
+			"deepseek": {Model: "deepseek-v4.1-flash"},
 		},
 		CLI: config.CLIConfig{DefaultProvider: "zai"},
 	}
@@ -48,7 +48,7 @@ func TestPickProvider(t *testing.T) {
 		require.Equal(t, 1, selector.calls)
 		require.Equal(t, "zai", selector.current)
 		require.Equal(t, []ProviderChoice{
-			{Name: "deepseek", Model: "deepseek-v4-pro"},
+			{Name: "deepseek", Model: "deepseek-v4.1-flash"},
 			{Name: "zai", Model: "glm-4.7"},
 		}, selector.choices)
 	})

@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"syscall"
 
 	"github.com/dotcommander/cclauncher/internal/cli"
 )
@@ -27,6 +30,17 @@ func main() {
 
 	if err := cli.Execute(context.Background()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
+}
+
+func exitCode(err error) int {
+	var child *exec.ExitError
+	if errors.As(err, &child) {
+		if status, ok := child.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+			return 128 + int(status.Signal())
+		}
+		return child.ExitCode()
+	}
+	return 1
 }
