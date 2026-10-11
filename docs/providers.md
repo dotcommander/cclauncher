@@ -11,6 +11,15 @@ Use the command above to see the providers and models loaded from your current
 defaults in `internal/config/default-config.yaml`; `examples/config.yaml.example`
 is generated from that same canonical file.
 
+The interactive launch picker hides providers with missing required credentials,
+invalid launch configuration, or unreachable localhost/loopback endpoints. Local
+checks use unauthenticated HEAD requests, the doctor's five-second probe timeout,
+and `doctor.probeConcurrency`; redirects and environment proxies are disabled.
+Any HTTP response counts as reachable, including servers that reject HEAD.
+Cloud endpoints are not probed. `ccl providers` still lists every configured
+provider, and explicit `--provider` launches are unchanged. Eligibility does not
+prove credential validity or that the requested model is loaded.
+
 ## Cloud (Native APIs)
 
 These providers use their own API endpoints and require separate keys.
@@ -25,11 +34,11 @@ ccl --provider synthetic
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.synthetic.new/anthropic` |
-| Model | `hf:zai-org/GLM-4.7` |
-| Small/Fast | `hf:zai-org/GLM-4.7` |
+| Model | `syn:large:text` |
+| Small/Fast | `syn:large:text` |
 | Env var | `SYNTHETIC_API_KEY` |
 
-`synthetic` routes through Synthetic.new to access GLM-4.7. Swap the model for any HuggingFace slug Synthetic hosts by editing `~/.config/cclauncher/config.yaml`.
+`synthetic` uses the `syn:large:text` model through Synthetic.new. Change the model by editing `~/.config/cclauncher/config.yaml`.
 
 ### deepseek
 
@@ -41,8 +50,8 @@ ccl --provider deepseek
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.deepseek.com/anthropic` |
-| Model | `deepseek-v4.1-flash` |
-| Small/Fast | `deepseek-v4.1-flash` |
+| Model | `deepseek-flash` |
+| Small/Fast | `deepseek-flash` |
 | Env var | `DEEPSEEK_API_KEY` |
 
 ### minimax
@@ -90,8 +99,8 @@ ccl --provider openrouter
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://openrouter.ai/api` |
-| Model | `deepseek/deepseek-v3.2` |
-| Small/Fast | `deepseek/deepseek-v3.2` |
+| Model | `openrouter/free` |
+| Small/Fast | `openrouter/free` |
 | Env var | `OPENROUTER_API_KEY` |
 
 OpenRouter exposes an Anthropic Messages-compatible route at `/api` (its "Anthropic Skin"). Swap the model to any [OpenRouter slug](https://openrouter.ai/models) — e.g. `anthropic/claude-sonnet-4.5`, `moonshotai/kimi-k2.5` — by editing the `model`/`smallFastModel` in `~/.config/cclauncher/config.yaml`.
@@ -180,16 +189,16 @@ ccl --provider omlx        # localhost:8000
 | Field | Value |
 |-------|-------|
 | Endpoint | `http://localhost:8000` (override: `OMLX_BASE_URL`) |
-| Model | `Qwen3.5-9B-MLX-4bit` (override: `OMLX_MODEL`) |
-| Small/Fast | `gemma-4-e2b-it-4bit` (override: `OMLX_SMALL_MODEL`) |
+| Model | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` (override: `OMLX_MODEL`) |
+| Small/Fast | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` (override: `OMLX_SMALL_MODEL`) |
 | Auth | `OMLX_API_KEY` (optional) |
 
 `omlx` targets a local MLX-backed Anthropic-compatible server on macOS. Override the endpoint and models without editing config:
 
 ```bash
 export OMLX_BASE_URL="http://localhost:8000"
-export OMLX_MODEL="Qwen3.5-9B-MLX-4bit"
-export OMLX_SMALL_MODEL="gemma-4-e2b-it-4bit"
+export OMLX_MODEL="Ornith-1.5-35B-A3B-oQ4e-fp16-mtp"
+export OMLX_SMALL_MODEL="Ornith-1.5-35B-A3B-oQ4e-fp16-mtp"
 ```
 
 ## Switching Providers

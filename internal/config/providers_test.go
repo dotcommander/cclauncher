@@ -86,16 +86,21 @@ func TestGetProvider_Models(t *testing.T) {
 	require.NoError(t, err)
 
 	deepseek, _ := GetProvider(cfg, "deepseek")
-	assert.Equal(t, "deepseek-v4.1-flash", deepseek.Model)
-	assert.Equal(t, "deepseek-v4.1-flash", deepseek.SmallFastModel)
+	assert.Equal(t, "deepseek-flash", deepseek.Model)
+	assert.Equal(t, "deepseek-flash", deepseek.SmallFastModel)
 
 	synthetic, _ := GetProvider(cfg, "synthetic")
-	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.Model)
-	assert.Equal(t, "hf:zai-org/GLM-4.7", synthetic.SmallFastModel)
+	assert.Equal(t, "syn:large:text", synthetic.Model)
+	assert.Equal(t, "syn:large:text", synthetic.SmallFastModel)
 
 	openrouter, _ := GetProvider(cfg, "openrouter")
-	assert.Equal(t, "deepseek/deepseek-v4.1-flash", openrouter.Model)
-	assert.Equal(t, "deepseek/deepseek-v3.2", openrouter.SmallFastModel)
+	assert.Equal(t, "openrouter/free", openrouter.Model)
+	assert.Equal(t, "openrouter/free", openrouter.SmallFastModel)
+
+	omlx, exists := GetProvider(cfg, "omlx")
+	require.True(t, exists)
+	assert.Equal(t, "Ornith-1.5-35B-A3B-oQ4e-fp16-mtp", omlx.Model)
+	assert.Equal(t, "Ornith-1.5-35B-A3B-oQ4e-fp16-mtp", omlx.SmallFastModel)
 }
 
 func TestGetProvider_AuthenticationMethods(t *testing.T) {

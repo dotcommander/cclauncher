@@ -13,14 +13,14 @@ providers:
     authRequired: true
     baseUrl: "https://api.synthetic.new/anthropic"
     authToken: "${SYNTHETIC_API_KEY}"
-    model: "hf:zai-org/GLM-4.7"
-    smallFastModel: "hf:zai-org/GLM-4.7"
+    model: "syn:large:text"
+    smallFastModel: "syn:large:text"
   deepseek:
     authRequired: true
     baseUrl: "https://api.deepseek.com/anthropic"
     authToken: "${DEEPSEEK_API_KEY}"
-    model: "deepseek-v4.1-flash"
-    smallFastModel: "deepseek-v4.1-flash"
+    model: "deepseek-flash"
+    smallFastModel: "deepseek-flash"
   minimax:
     authRequired: true
     baseUrl: "https://api.minimax.io/anthropic"
@@ -37,8 +37,8 @@ providers:
     authRequired: true
     baseUrl: "https://openrouter.ai/api"
     authToken: "${OPENROUTER_API_KEY}"
-    model: "deepseek/deepseek-v4.1-flash"
-    smallFastModel: "deepseek/deepseek-v3.2"
+    model: "openrouter/free"
+    smallFastModel: "openrouter/free"
   wafer:
     authRequired: true
     baseUrl: "https://pass.wafer.ai"
@@ -70,8 +70,8 @@ providers:
     authRequired: false
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
     authToken: "${OMLX_API_KEY}"
-    model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"
-    smallFastModel: "${OMLX_SMALL_MODEL:-gemma-4-e2b-it-4bit}"
+    model: "${OMLX_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
+    smallFastModel: "${OMLX_SMALL_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
 
 doctor:
   probeConcurrency: 4

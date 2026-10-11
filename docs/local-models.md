@@ -162,15 +162,15 @@ providers:
 ccl --provider omlx
 ```
 
-By default CCL connects to `http://localhost:8000` with primary model `Qwen3.5-9B-MLX-4bit` and small/fast model `gemma-4-e2b-it-4bit`.
+By default CCL connects to `http://localhost:8000` with `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` for both primary and small/fast models.
 
 ### Environment variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OMLX_BASE_URL` | `http://localhost:8000` | Server address |
-| `OMLX_MODEL` | `Qwen3.5-9B-MLX-4bit` | Primary model |
-| `OMLX_SMALL_MODEL` | `gemma-4-e2b-it-4bit` | Background/subagent model |
+| `OMLX_MODEL` | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` | Primary model |
+| `OMLX_SMALL_MODEL` | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` | Background/subagent model |
 | `OMLX_API_KEY` | *(empty)* | API key if your server requires one |
 
 ### Config override
@@ -180,8 +180,8 @@ providers:
   omlx:
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
     authRequired: false
-    model: "${OMLX_MODEL:-Qwen3.5-9B-MLX-4bit}"
-    smallFastModel: "${OMLX_SMALL_MODEL:-gemma-4-e2b-it-4bit}"
+    model: "${OMLX_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
+    smallFastModel: "${OMLX_SMALL_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
 ```
 
 ## Switching Servers Mid-Session

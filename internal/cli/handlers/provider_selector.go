@@ -87,9 +87,14 @@ func isTerminalOutput(out io.Writer) bool {
 // so Enter relaunches it. The choice is used for this launch only; nothing is
 // persisted.
 func pickProvider(ctx context.Context, cfg *config.Config, selector ProviderSelector) (string, error) {
-	choices := providerChoices(cfg)
+	client := localProviderClient()
+	defer client.CloseIdleConnections()
+	choices, err := reachableProviderChoices(ctx, cfg, client)
+	if err != nil {
+		return "", fmt.Errorf("check provider availability: %w", err)
+	}
 	if len(choices) == 0 {
-		return "", errors.New("no providers configured")
+		return "", errors.New("no launchable providers: check credentials, configuration, and local servers")
 	}
 	if selector == nil {
 		return "", errors.New("provider selector is not configured")
@@ -101,17 +106,27 @@ func pickProvider(ctx context.Context, cfg *config.Config, selector ProviderSele
 	if _, ok := cfg.Providers[name]; !ok {
 		return "", unknownProviderError(name)
 	}
+	if !slices.ContainsFunc(choices, func(choice ProviderChoice) bool { return choice.Name == name }) {
+		return "", fmt.Errorf("provider %q is not launchable", name)
+	}
 	return name, nil
 }
 
-// providerChoices returns the configured providers as sorted selectable rows.
+// providerChoices returns sorted rows that pass offline launch prerequisites.
 func providerChoices(cfg *config.Config) []ProviderChoice {
 	names := slices.Sorted(maps.Keys(cfg.Providers))
 	choices := make([]ProviderChoice, 0, len(names))
 	for _, name := range names {
+		provider := cfg.Providers[name]
+		if provider.RequiresAuth() && !provider.HasAuth() {
+			continue
+		}
+		if err := config.ValidateProvider(provider); err != nil {
+			continue
+		}
 		choices = append(choices, ProviderChoice{
 			Name:  name,
-			Model: cfg.Providers[name].Model,
+			Model: provider.Model,
 		})
 	}
 	return choices
