@@ -153,7 +153,7 @@ providers:
 	require.Empty(t, first.Model)
 	require.False(t, first.RequiresAuth())
 	require.Equal(t, "literal: #value", first.AuthToken)
-	require.NotEmpty(t, first.SmallFastModel, "omitted inherited fields still receive shipped defaults")
+	require.Equal(t, os.Getenv("DEEPSEEK_SMALL_MODEL"), first.SmallFastModel, "omitted models inherit only the user's environment selection")
 	second := cfg.Providers["synthetic"]
 	require.Empty(t, second.BaseURL)
 	require.Equal(t, "explicit", second.Model)

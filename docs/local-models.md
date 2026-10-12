@@ -2,6 +2,12 @@
 
 CCL supports four local inference servers: LlamaBarn, LM Studio, llama.cpp, and omlx. All expose an API that Claude Code can reach directly — no internet connection needed for inference.
 
+CCL does not ship model IDs, including generic `local` aliases. Before launching,
+set the provider's `*_MODEL` variable to the model ID accepted by your server.
+Set `*_SMALL_MODEL` too when background/subagent requests need an explicit model.
+You can instead set `model` and `smallFastModel` in your user config. Missing
+primary models are rejected rather than relying on server-default routing.
+
 > **Tip:** Claude Code is tool-heavy. It sends many small requests and expects fast responses. For agentic tasks, use a model of at least 30B parameters with strong instruction-following: Qwen3-Coder, Kimi-K2, MiniMax-M2, or a similarly capable coder/instruct model.
 
 ## LM Studio
@@ -19,13 +25,15 @@ lms server start
 ### Launch Claude Code
 
 ```bash
+# After setting LMSTUDIO_MODEL (and optionally LMSTUDIO_SMALL_MODEL)
 ccl --provider lmstudio
 ```
 
-By default CCL connects to `http://localhost:1234` with model `openai/gpt-oss-20b`. To use a different model:
+By default CCL connects to `http://localhost:1234`. Select the model you loaded:
 
 ```bash
 export LMSTUDIO_MODEL="lmstudio-community/Qwen3-Coder-30B-A3B-GGUF"
+export LMSTUDIO_SMALL_MODEL="$LMSTUDIO_MODEL"
 ccl --provider lmstudio
 ```
 
@@ -36,8 +44,8 @@ ccl --provider lmstudio
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LMSTUDIO_BASE_URL` | `http://localhost:1234` | Server address |
-| `LMSTUDIO_MODEL` | `openai/gpt-oss-20b` | Model ID (must match what LM Studio loaded) |
-| `LMSTUDIO_SMALL_MODEL` | `openai/gpt-oss-20b` | Background/subagent model |
+| `LMSTUDIO_MODEL` | *(unset)* | Model ID (must match what LM Studio loaded) |
+| `LMSTUDIO_SMALL_MODEL` | *(unset)* | Background/subagent model |
 | `LMSTUDIO_API_KEY` | `lmstudio` | Auth token (any non-empty value works) |
 
 ### Config override
@@ -76,6 +84,8 @@ llama-server --model /path/to/model.gguf --port 8080
 ### Launch Claude Code
 
 ```bash
+export LLAMACPP_MODEL="your-server-model-id"
+export LLAMACPP_SMALL_MODEL="$LLAMACPP_MODEL"
 ccl --provider llamacpp
 ```
 
@@ -84,8 +94,8 @@ ccl --provider llamacpp
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LLAMACPP_BASE_URL` | `http://localhost:8080` | Server address |
-| `LLAMACPP_MODEL` | `local` | Model identifier sent in requests |
-| `LLAMACPP_SMALL_MODEL` | `local` | Background/subagent model identifier |
+| `LLAMACPP_MODEL` | *(unset)* | Model identifier sent in requests |
+| `LLAMACPP_SMALL_MODEL` | *(unset)* | Background/subagent model identifier |
 | `LLAMACPP_API_KEY` | `llamacpp` | Auth token (any non-empty value works) |
 
 > **Note:** `llama-server` ignores the model field in requests — it serves whatever model it loaded at startup. The `LLAMACPP_MODEL` value is passed through but has no effect on which weights are used.
@@ -97,8 +107,8 @@ providers:
   llamacpp:
     baseUrl: "http://localhost:8080"
     authToken: "llamacpp"
-    model: "local"
-    smallFastModel: "local"
+    model: "${LLAMACPP_MODEL}"
+    smallFastModel: "${LLAMACPP_SMALL_MODEL}"
 ```
 
 ## LlamaBarn
@@ -128,6 +138,8 @@ Follow the LlamaBarn documentation for your platform. Configure CCL with the ser
 ### Launch Claude Code
 
 ```bash
+export LLAMABARN_MODEL="your-loaded-model-id"
+export LLAMABARN_SMALL_MODEL="$LLAMABARN_MODEL"
 ccl --provider llamabarn
 ```
 
@@ -136,8 +148,8 @@ ccl --provider llamabarn
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `LLAMABARN_BASE_URL` | `http://localhost:2276` | Server root URL |
-| `LLAMABARN_MODEL` | `local` | Model to request |
-| `LLAMABARN_SMALL_MODEL` | `local` | Background/subagent model |
+| `LLAMABARN_MODEL` | *(unset)* | Model to request |
+| `LLAMABARN_SMALL_MODEL` | *(unset)* | Background/subagent model |
 | `LLAMABARN_API_KEY` | *(empty)* | API key if your server requires one |
 
 ### Config override
@@ -148,8 +160,8 @@ providers:
     baseUrl: "http://localhost:2276"
     authRequired: false
     authToken: "${LLAMABARN_API_KEY}"
-    model: "${LLAMABARN_MODEL:-local}"
-    smallFastModel: "${LLAMABARN_SMALL_MODEL:-local}"
+    model: "${LLAMABARN_MODEL}"
+    smallFastModel: "${LLAMABARN_SMALL_MODEL}"
 ```
 
 ## omlx
@@ -159,18 +171,20 @@ providers:
 ### Launch Claude Code
 
 ```bash
+export OMLX_MODEL="your-loaded-model-id"
+export OMLX_SMALL_MODEL="$OMLX_MODEL"
 ccl --provider omlx
 ```
 
-By default CCL connects to `http://localhost:8000` with `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` for both primary and small/fast models.
+By default CCL connects to `http://localhost:8000`. Set `OMLX_MODEL` to a model ID loaded by your server; there is no fallback model.
 
 ### Environment variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OMLX_BASE_URL` | `http://localhost:8000` | Server address |
-| `OMLX_MODEL` | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` | Primary model |
-| `OMLX_SMALL_MODEL` | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` | Background/subagent model |
+| `OMLX_MODEL` | *(unset)* | Primary model |
+| `OMLX_SMALL_MODEL` | *(unset)* | Background/subagent model |
 | `OMLX_API_KEY` | *(empty)* | API key if your server requires one |
 
 ### Config override
@@ -180,8 +194,8 @@ providers:
   omlx:
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
     authRequired: false
-    model: "${OMLX_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
-    smallFastModel: "${OMLX_SMALL_MODEL:-Ornith-1.5-35B-A3B-oQ4e-fp16-mtp}"
+    model: "${OMLX_MODEL}"
+    smallFastModel: "${OMLX_SMALL_MODEL}"
 ```
 
 ## Switching Servers Mid-Session
@@ -193,7 +207,8 @@ Claude Code doesn't support mid-session provider swaps — the environment varia
 ccl --provider lmstudio
 
 # Next session: llama.cpp with a different model
-export LLAMACPP_MODEL="local"
+export LLAMACPP_MODEL="your-server-model-id"
+export LLAMACPP_SMALL_MODEL="$LLAMACPP_MODEL"
 ccl --provider llamacpp
 ```
 

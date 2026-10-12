@@ -7,9 +7,21 @@ CCL reads `~/.config/cclauncher/config.yaml`. If the file doesn't exist, CCL cre
 The fastest way to configure CCL is environment variables — no config file editing required:
 
 ```bash
-export SYNTHETIC_API_KEY="sk-..."   # enables all Synthetic.new providers
-export DEEPSEEK_API_KEY="sk-..."    # enables deepseek
+export SYNTHETIC_API_KEY="sk-..."
+export SYNTHETIC_MODEL="your-model-id"
+export SYNTHETIC_SMALL_MODEL="$SYNTHETIC_MODEL"
 ```
+
+Shipped providers do not select model IDs. Set `<PROVIDER>_MODEL` and
+`<PROVIDER>_SMALL_MODEL`, or edit `model` and `smallFastModel` in your config.
+A non-Anthropic provider needs an explicit primary model to launch. The optional
+small/fast slot is left unset unless you choose it; configure it too when your
+endpoint needs a specific model for background/subagent requests. Native `claude`
+uses Claude Code's model selection without a CCL override.
+
+Existing explicit model values are preserved. Updating CCL does not rewrite your
+user config or remove previously saved model choices. Environment variables only
+apply where the config contains their interpolation templates.
 
 Set the default provider by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 
@@ -31,7 +43,7 @@ providers:
   myprovider:
     authToken: "${MY_API_KEY}"              # empty string if MY_API_KEY is unset
     baseUrl: "${MY_BASE_URL:-https://api.example.com}"  # fallback if unset
-    model: "${MY_MODEL:-my-default-model}"
+    model: "${MY_MODEL}"                   # no model fallback
 ```
 
 | Syntax | Behavior |
@@ -80,8 +92,8 @@ providers:
     authToken: "${MY_API_KEY}"    # Bearer token for most providers
     apiKey: ""                    # Alternative auth field (less common)
     oauthToken: ""                # OAuth token — rarely used; claude handles its own auth
-    model: "model-id"             # Primary model (ANTHROPIC_MODEL)
-    smallFastModel: "model-id"    # Background/subagent model (ANTHROPIC_SMALL_FAST_MODEL)
+    model: "${MY_MODEL}"          # Explicit primary model (required except native Anthropic)
+    smallFastModel: "${MY_SMALL_MODEL}" # Optional explicit background/subagent model
 
 # --- CLI ---------------------------------------------------------------------
 cli:
@@ -290,8 +302,9 @@ scalar values once. Keys are literal. Replacement punctuation, newlines and embe
 Nested expressions in source templates are rejected. `${VAR:-}` supports an empty
 fallback. String fields remain strings; declared numeric and boolean fields are
 converted according to their schema. Explicit empty values and `false` are preserved.
-Existing providers inherit omitted non-secret endpoint/model/policy fields; their
-credentials are never filled from a shipped provider template.
+Existing providers inherit omitted non-secret endpoint/model-template/policy fields;
+model templates have no fallback IDs, and explicit model values (including empty
+strings) are preserved. Credentials are never filled from a shipped provider template.
 
 Credential overrides uppercase the provider name and replace hyphens with underscores.
 `CCL_MY_PROVIDER_API_KEY` takes precedence over legacy `CCL_MY-PROVIDER_API_KEY`.
@@ -308,7 +321,8 @@ and sync the replacement and containing directory. A failure after replacement r
 that the new file is already in place. Dangling symlinks are refused.
 
 Provider endpoints must be absolute HTTP(S) URLs; local HTTP is supported. Native
-Anthropic can omit a model for direct Claude login. Transformed native launches need a
+Anthropic can omit a model for direct Claude login. Other endpoints require an
+explicit primary model; missing models are rejected before launch. Transformed native launches need a
 configured upstream key. `responseFormat` is rejected with provider/rule context.
 Exact `"*"` matches any model/message; other patterns match substrings. Message patterns
 match serialized raw request JSON, including roles and metadata. Counting requests

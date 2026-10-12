@@ -1,6 +1,6 @@
 # Providers
 
-CCL ships with 11 pre-configured providers across three categories. Each provider maps to a specific model and API endpoint. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
+CCL ships with 11 provider endpoint templates across three categories. Models are user-selected, not shipped defaults. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
 ```bash
 ccl providers
@@ -10,6 +10,14 @@ Use the command above to see the providers and models loaded from your current
 `~/.config/cclauncher/config.yaml`. The tables below describe the committed
 defaults in `internal/config/default-config.yaml`; `examples/config.yaml.example`
 is generated from that same canonical file.
+
+For every non-Anthropic provider, set `model` explicitly in your config or set its
+`<PROVIDER>_MODEL` variable. Set `smallFastModel` or `<PROVIDER>_SMALL_MODEL` to
+choose background/subagent models too. Neither slot has a model fallback. An unset
+primary model blocks launch and hides that provider from the interactive picker;
+CCL does not assume a server supports default-model routing. Native `claude`
+leaves model selection to Claude Code. Existing explicit config values are preserved;
+model environment variables apply only where your config uses their templates.
 
 The interactive launch picker hides providers with missing required credentials,
 invalid launch configuration, or unreachable localhost/loopback endpoints. Local
@@ -28,79 +36,89 @@ These providers use their own API endpoints and require separate keys.
 
 ```bash
 export SYNTHETIC_API_KEY="sk-..."
+export SYNTHETIC_MODEL="your-model-id"
+export SYNTHETIC_SMALL_MODEL="$SYNTHETIC_MODEL"
 ccl --provider synthetic
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.synthetic.new/anthropic` |
-| Model | `syn:large:text` |
-| Small/Fast | `syn:large:text` |
+| Model | User-selected (`SYNTHETIC_MODEL`) |
+| Small/Fast | User-selected (`SYNTHETIC_SMALL_MODEL`) |
 | Env var | `SYNTHETIC_API_KEY` |
 
-`synthetic` uses the `syn:large:text` model through Synthetic.new. Change the model by editing `~/.config/cclauncher/config.yaml`.
+Choose a model hosted by Synthetic.new using the variables above or `~/.config/cclauncher/config.yaml`.
 
 ### deepseek
 
 ```bash
 export DEEPSEEK_API_KEY="sk-..."
+export DEEPSEEK_MODEL="your-model-id"
+export DEEPSEEK_SMALL_MODEL="$DEEPSEEK_MODEL"
 ccl --provider deepseek
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.deepseek.com/anthropic` |
-| Model | `deepseek-flash` |
-| Small/Fast | `deepseek-flash` |
+| Model | User-selected (`DEEPSEEK_MODEL`) |
+| Small/Fast | User-selected (`DEEPSEEK_SMALL_MODEL`) |
 | Env var | `DEEPSEEK_API_KEY` |
 
 ### minimax
 
 ```bash
 export MINIMAX_API_KEY="sk-..."
+export MINIMAX_MODEL="your-model-id"
+export MINIMAX_SMALL_MODEL="$MINIMAX_MODEL"
 ccl --provider minimax
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.minimax.io/anthropic` |
-| Model | `MiniMax-M2.7` |
-| Small/Fast | `MiniMax-M2.7-highspeed` |
+| Model | User-selected (`MINIMAX_MODEL`) |
+| Small/Fast | User-selected (`MINIMAX_SMALL_MODEL`) |
 | Env var | `MINIMAX_API_KEY` |
 
 ### zai
 
 ```bash
 export ZAI_API_KEY="sk-..."
+export ZAI_MODEL="your-model-id"
+export ZAI_SMALL_MODEL="$ZAI_MODEL"
 ccl --provider zai
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.z.ai/api/anthropic` |
-| Model | `glm-4.7` (override: `ZAI_MODEL`) |
-| Small/Fast | `glm-4.5-air` (override: `ZAI_SMALL_MODEL`) |
+| Model | User-selected (`ZAI_MODEL`) |
+| Small/Fast | User-selected (`ZAI_SMALL_MODEL`) |
 | Env var | `ZAI_API_KEY` |
 
 `zai` supports model overrides without editing the config file:
 
 ```bash
-export ZAI_MODEL="glm-4.7"
-export ZAI_SMALL_MODEL="glm-4.5-air"
+export ZAI_MODEL="your-model-id"
+export ZAI_SMALL_MODEL="$ZAI_MODEL"
 ```
 
 ### openrouter
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-..."
+export OPENROUTER_MODEL="your-model-id"
+export OPENROUTER_SMALL_MODEL="$OPENROUTER_MODEL"
 ccl --provider openrouter
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://openrouter.ai/api` |
-| Model | `openrouter/free` |
-| Small/Fast | `openrouter/free` |
+| Model | User-selected (`OPENROUTER_MODEL`) |
+| Small/Fast | User-selected (`OPENROUTER_SMALL_MODEL`) |
 | Env var | `OPENROUTER_API_KEY` |
 
 OpenRouter exposes an Anthropic Messages-compatible route at `/api` (its "Anthropic Skin"). Swap the model to any [OpenRouter slug](https://openrouter.ai/models) — e.g. `anthropic/claude-sonnet-4.5`, `moonshotai/kimi-k2.5` — by editing the `model`/`smallFastModel` in `~/.config/cclauncher/config.yaml`.
@@ -109,6 +127,8 @@ OpenRouter exposes an Anthropic Messages-compatible route at `/api` (its "Anthro
 
 ```bash
 export WAFER_API_KEY="..."
+export WAFER_MODEL="your-model-id"
+export WAFER_SMALL_MODEL="$WAFER_MODEL"
 ccl --provider wafer
 # or shorthand
 ccl -p wafer
@@ -117,8 +137,8 @@ ccl -p wafer
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://pass.wafer.ai` |
-| Model | `GLM-5.1` (override: `WAFER_MODEL`) |
-| Small/Fast | `GLM-5.1` (override: `WAFER_SMALL_MODEL`) |
+| Model | User-selected (`WAFER_MODEL`) |
+| Small/Fast | User-selected (`WAFER_SMALL_MODEL`) |
 | Env var | `WAFER_API_KEY` |
 
 [Wafer Pass](https://docs.wafer.ai/wafer-pass) routes to frontier open models via an Anthropic-compatible endpoint. Available models include `GLM-5.1`, `DeepSeek-V4.1-Flash`, and `Qwen3.5-397B-A17B` (model names are case-insensitive). Override without editing config:
@@ -149,6 +169,8 @@ Local providers connect to a server running on your machine. No API key is requi
 
 See [local-models.md](local-models.md) for server setup instructions and model recommendations.
 
+After configuring each provider's model using the variables below:
+
 ```bash
 ccl --provider llamabarn   # localhost:2276
 ccl --provider lmstudio    # localhost:1234
@@ -161,7 +183,8 @@ ccl --provider omlx        # localhost:8000
 | Field | Value |
 |-------|-------|
 | Endpoint | `http://localhost:2276` (override: `LLAMABARN_BASE_URL`) |
-| Model | `local` (override: `LLAMABARN_MODEL`) |
+| Model | User-selected (`LLAMABARN_MODEL`) |
+| Small/Fast | User-selected (`LLAMABARN_SMALL_MODEL`) |
 | Auth | `LLAMABARN_API_KEY` (optional) |
 
 ### lmstudio
@@ -169,7 +192,8 @@ ccl --provider omlx        # localhost:8000
 | Field | Value |
 |-------|-------|
 | Endpoint | `http://localhost:1234` (override: `LMSTUDIO_BASE_URL`) |
-| Model | `openai/gpt-oss-20b` (override: `LMSTUDIO_MODEL`) |
+| Model | User-selected (`LMSTUDIO_MODEL`) |
+| Small/Fast | User-selected (`LMSTUDIO_SMALL_MODEL`) |
 | Auth | Any non-empty token — defaults to `lmstudio` |
 
 > **Tip:** LM Studio validates that the `Authorization` header is present but doesn't check the token value. The default `lmstudio` token works with any loaded model.
@@ -179,7 +203,8 @@ ccl --provider omlx        # localhost:8000
 | Field | Value |
 |-------|-------|
 | Endpoint | `http://localhost:8080` (override: `LLAMACPP_BASE_URL`) |
-| Model | `local` (override: `LLAMACPP_MODEL`) |
+| Model | User-selected (`LLAMACPP_MODEL`) |
+| Small/Fast | User-selected (`LLAMACPP_SMALL_MODEL`) |
 | Auth | Any non-empty token — defaults to `llamacpp` |
 
 `llama-server` supports the Anthropic Messages API natively when started with `--port 8080`. CCL connects directly without a translation layer.
@@ -189,16 +214,16 @@ ccl --provider omlx        # localhost:8000
 | Field | Value |
 |-------|-------|
 | Endpoint | `http://localhost:8000` (override: `OMLX_BASE_URL`) |
-| Model | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` (override: `OMLX_MODEL`) |
-| Small/Fast | `Ornith-1.5-35B-A3B-oQ4e-fp16-mtp` (override: `OMLX_SMALL_MODEL`) |
+| Model | User-selected (`OMLX_MODEL`) |
+| Small/Fast | User-selected (`OMLX_SMALL_MODEL`) |
 | Auth | `OMLX_API_KEY` (optional) |
 
 `omlx` targets a local MLX-backed Anthropic-compatible server on macOS. Override the endpoint and models without editing config:
 
 ```bash
 export OMLX_BASE_URL="http://localhost:8000"
-export OMLX_MODEL="Ornith-1.5-35B-A3B-oQ4e-fp16-mtp"
-export OMLX_SMALL_MODEL="Ornith-1.5-35B-A3B-oQ4e-fp16-mtp"
+export OMLX_MODEL="your-loaded-model-id"
+export OMLX_SMALL_MODEL="$OMLX_MODEL"
 ```
 
 ## Switching Providers

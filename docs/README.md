@@ -3,6 +3,8 @@
 ```bash
 go install github.com/dotcommander/cclauncher/cmd/ccl@latest
 export DEEPSEEK_API_KEY="sk-..."
+export DEEPSEEK_MODEL="your-model-id"
+export DEEPSEEK_SMALL_MODEL="$DEEPSEEK_MODEL"
 ccl --provider deepseek -p "say hello"
 ```
 
@@ -28,8 +30,9 @@ ccl providers
 ```
 
 The table comes from `~/.config/cclauncher/config.yaml` after environment
-variable interpolation and CCL's default-provider merge. It may show different
-models than the committed defaults if you already customized your local config.
+variable interpolation and CCL's default-provider merge. Shipped templates do not
+choose models: values come from your config or provider-specific model variables.
+An unset primary model blocks non-Anthropic launches.
 
 ### Check provider configuration
 

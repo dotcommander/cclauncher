@@ -1,6 +1,6 @@
 # CCL — Claude Code Launcher
 
-CCL runs Claude Code against a different model provider — DeepSeek, GLM, a local model, whatever — without you editing config or exporting environment variables by hand.
+CCL runs Claude Code against a different model provider — DeepSeek, GLM, a local model, whatever — without you managing Claude Code's `ANTHROPIC_*` variables by hand. You choose the model in CCL config or provider-specific environment variables.
 
 It works because Claude Code only speaks the Anthropic Messages API. Any provider that also speaks that API will work with Claude Code; the model just needs to be reachable at the right URL with the right key. CCL knows those URLs and keys, sets them, and launches `claude`.
 
@@ -32,6 +32,9 @@ ln -sf "$(pwd)/ccl" "$(go env GOPATH)/bin/ccl"
 
 ## Usage
 
+First configure the provider's key (if required) and explicit model as shown below.
+Shipped defaults do not choose models. Native `claude` uses Claude Code's selection.
+
 ```bash
 ccl                                  # pick a provider; pre-selects the default
 ccl --provider deepseek              # this session only; skips the picker
@@ -61,19 +64,27 @@ For the full docs index, see [docs/README.md](docs/README.md).
 
 ## Providers
 
-CCL ships with eleven providers in three categories. They're pre-configured; you only supply the key.
+CCL ships with eleven provider endpoint templates in three categories. You supply
+credentials when required and select models; there are no shipped model fallbacks.
 
-**Cloud** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`, `wafer`. Each reads one environment variable:
+**Cloud** — `synthetic`, `deepseek`, `minimax`, `zai`, `openrouter`, `wafer`.
+Set the provider's API key and model variables:
 
 ```bash
 export DEEPSEEK_API_KEY="sk-..."
+export DEEPSEEK_MODEL="your-model-id"
+export DEEPSEEK_SMALL_MODEL="$DEEPSEEK_MODEL"
 ccl --provider deepseek
 
 export OPENROUTER_API_KEY="sk-or-..."
+export OPENROUTER_MODEL="your-model-id"
+export OPENROUTER_SMALL_MODEL="$OPENROUTER_MODEL"
 ccl --provider openrouter
 ```
 
-**Local** — `llamabarn`, `lmstudio`, `llamacpp`, `omlx`. No key; the model server runs on your machine and CCL points at `localhost`:
+**Local** — `llamabarn`, `lmstudio`, `llamacpp`, `omlx`. No key is required by
+default; the server runs on your machine and CCL points at `localhost`. Set each
+provider's `*_MODEL` to an ID accepted by its server before launching:
 
 ```bash
 ccl --provider lmstudio          # LM Studio, localhost:1234
@@ -87,9 +98,15 @@ Endpoints, environment variables, and per-provider notes: [docs/providers.md](do
 
 ## Configuration
 
-On first run, CCL writes `~/.config/cclauncher/config.yaml` with all providers filled in. You supply the API key through an environment variable; CCL can't guess it.
+On first run, CCL writes `~/.config/cclauncher/config.yaml` with provider endpoints
+and environment templates. Set `<PROVIDER>_MODEL` or `model` explicitly for any
+non-Anthropic provider. Set `<PROVIDER>_SMALL_MODEL` or `smallFastModel` to choose
+background/subagent models too. Updating CCL preserves existing config choices;
+environment variables apply where your config uses their templates.
 
-Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects the configured default, so press Enter to launch it or pick another provider for that launch only. Both input and output must be terminals for the picker. With redirected input or output, bare `ccl` uses the configured default without prompting. Launches with arguments also use that default unless a provider is selected.
+Run bare `ccl` at an interactive terminal to open the provider picker. It shows only
+launchable providers and pre-selects the configured default if eligible; press Enter
+to launch the selection or choose another provider for that launch only. Both input and output must be terminals for the picker. With redirected input or output, bare `ccl` uses the configured default without prompting. Launches with arguments also use that default unless a provider is selected.
 
 Set that default by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 
@@ -99,7 +116,8 @@ Override a single key without editing the config — `CCL_<PROVIDER>_API_KEY` ta
 export CCL_DEEPSEEK_API_KEY="sk-..."
 ```
 
-If you select a provider whose key is missing, CCL stops before launching and tells you which variable to set, rather than producing a 401 mid-session.
+Missing required models or credentials block explicit launches before Claude Code
+starts. Such providers are also hidden from the interactive picker.
 
 Config schema and interpolation rules: [docs/configuration.md](docs/configuration.md). Local model setup: [docs/local-models.md](docs/local-models.md).
 

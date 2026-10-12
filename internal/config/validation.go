@@ -13,7 +13,7 @@ func ValidateProviderEndpoint(p Provider) error {
 		return fmt.Errorf("baseUrl must be an absolute HTTP(S) URL")
 	}
 	if strings.TrimSpace(p.Model) == "" && !isNativeAnthropic(p) {
-		return fmt.Errorf("model must be configured")
+		return fmt.Errorf("model must be configured explicitly")
 	}
 	return nil
 }
