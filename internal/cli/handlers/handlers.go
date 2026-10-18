@@ -42,9 +42,18 @@ type CodeOptions struct {
 	ErrorOutput io.Writer
 }
 
-// HandleCode resolves a provider, sets up the environment, and execs Claude
-// Code with all non-CCL arguments passed through unchanged.
+// HandleCode resolves a provider, supervises Claude Code, and remembers the
+// provider/model pair only after a successful session.
 func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts CodeOptions) error {
+	return handleCode(ctx, cfg, args, opts, launchDependencies{
+		run: func(ctx context.Context, p config.Provider, opt config.OptimizationConfig, args []string, opts CodeOptions) error {
+			return launcher.LaunchIO(ctx, p, opt, args, opts.Input, opts.Output, opts.ErrorOutput)
+		},
+		remember: config.SetDefaultSelection,
+	})
+}
+
+func handleCode(ctx context.Context, cfg *config.Config, args []string, opts CodeOptions, deps launchDependencies) error {
 
 	providerName, claudeArgs, err := extractProviderFromArgs(args)
 	if err != nil {
@@ -64,6 +73,7 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		return err
 	}
 
+	provider = selectedModel(provider, claudeArgs)
 	provider.Transformer, err = config.ResolveTransformerPresets(provider.Transformer)
 	if err != nil {
 		return fmt.Errorf("provider %q: %w", providerName, err)
@@ -83,14 +93,18 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		return fmt.Errorf("write launch status: %w", err)
 	}
 
-	if provider.Transformer.HasRules() {
-		return launcher.LaunchWithProxyIO(ctx, provider, cfg.Optimization, claudeArgs, opts.Input, opts.Output, opts.ErrorOutput)
+	if err := deps.run(ctx, provider, cfg.Optimization, claudeArgs, opts); err != nil {
+		return err
 	}
-
-	return launcher.ExecuteClaudeCode(
-		launcher.SetupEnvironment(provider, cfg.Optimization),
-		claudeArgs,
-	)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if remembersSession(claudeArgs) {
+		if err := deps.remember(providerName, provider); err != nil {
+			return fmt.Errorf("session succeeded but saving default selection failed: %w", err)
+		}
+	}
+	return nil
 }
 
 // extractProviderFromArgs finds and removes the CCL provider selector from raw
@@ -155,6 +169,11 @@ func resolveProvider(name string, cfg *config.Config) (string, config.Provider, 
 	provider, ok := cfg.Providers[name]
 	if !ok {
 		return "", config.Provider{}, unknownProviderError(name)
+	}
+
+	if name == cfg.CLI.DefaultProvider && cfg.CLI.DefaultModel != "" {
+		provider.Model = cfg.CLI.DefaultModel
+		provider.SmallFastModel = cfg.CLI.DefaultSmallFastModel
 	}
 
 	// Override model from router.default if it targets this provider.

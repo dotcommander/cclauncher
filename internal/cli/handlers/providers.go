@@ -22,7 +22,7 @@ func writeProviders(out io.Writer, cfg *config.Config) error {
 	rows := make([][]string, 0, len(names))
 	defaultRow := -1
 	for _, name := range names {
-		p := cfg.Providers[name]
+		_, p, _ := resolveProvider(name, cfg)
 		auth := "no"
 		if p.HasAuth() {
 			auth = "yes"

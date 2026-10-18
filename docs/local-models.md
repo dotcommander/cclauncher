@@ -185,7 +185,8 @@ By default CCL connects to `http://localhost:8000`. Set `OMLX_MODEL` to a model 
 | `OMLX_BASE_URL` | `http://localhost:8000` | Server address |
 | `OMLX_MODEL` | *(unset)* | Primary model |
 | `OMLX_SMALL_MODEL` | *(unset)* | Background/subagent model |
-| `OMLX_API_KEY` | *(empty)* | API key if your server requires one |
+| `OMLX_API_KEY` | `omlx` | API key, or local placeholder to avoid Claude account OAuth |
+| `OMLX_CONTEXT_TOKENS` | `0` | With the config override below: actual context window |
 
 ### Config override
 
@@ -194,9 +195,21 @@ providers:
   omlx:
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
     authRequired: false
+    authToken: "${OMLX_API_KEY:-omlx}"
     model: "${OMLX_MODEL}"
     smallFastModel: "${OMLX_SMALL_MODEL}"
+    maxContextTokens: "${OMLX_CONTEXT_TOKENS:-0}"
 ```
+
+For an existing config with an empty omlx token, update `authToken` to the template
+above. Without a non-empty token, Claude Code can fall back to an expired account
+login before contacting the local server. The placeholder is not a real credential;
+replace it with your server key if authentication is enabled.
+
+For custom aliases such as `opus-omlx`, set `maxContextTokens` to the server's actual
+advertised context size (for example, `131072` when `/v1/models` reports that limit).
+This removes Claude Code's unknown-context warning without pretending the local model
+is an Anthropic Opus model. Restart Claude Code to pick up config changes.
 
 ## Switching Servers Mid-Session
 

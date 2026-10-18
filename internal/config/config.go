@@ -41,14 +41,15 @@ type RouterConfig struct {
 
 // Provider defines an LLM provider configuration
 type Provider struct {
-	APIKey         string            `json:"apiKey,omitempty" yaml:"apiKey"`
-	AuthToken      string            `json:"authToken,omitempty" yaml:"authToken"`
-	OAuthToken     string            `json:"oauthToken,omitempty" yaml:"oauthToken"`
-	AuthRequired   *bool             `json:"authRequired,omitempty" yaml:"authRequired,omitempty"`
-	BaseURL        string            `json:"baseUrl,omitempty" yaml:"baseUrl"`
-	Model          string            `json:"model,omitempty" yaml:"model"`
-	SmallFastModel string            `json:"smallFastModel,omitempty" yaml:"smallFastModel"`
-	Transformer    TransformerConfig `json:"transformer,omitempty" yaml:"transformer,omitempty"`
+	APIKey           string            `json:"apiKey,omitempty" yaml:"apiKey"`
+	AuthToken        string            `json:"authToken,omitempty" yaml:"authToken"`
+	OAuthToken       string            `json:"oauthToken,omitempty" yaml:"oauthToken"`
+	AuthRequired     *bool             `json:"authRequired,omitempty" yaml:"authRequired,omitempty"`
+	BaseURL          string            `json:"baseUrl,omitempty" yaml:"baseUrl"`
+	Model            string            `json:"model,omitempty" yaml:"model"`
+	SmallFastModel   string            `json:"smallFastModel,omitempty" yaml:"smallFastModel"`
+	MaxContextTokens int               `json:"maxContextTokens,omitempty" yaml:"maxContextTokens,omitempty"`
+	Transformer      TransformerConfig `json:"transformer,omitempty" yaml:"transformer,omitempty"`
 }
 
 // HasAuth reports whether the provider has any authentication credential configured.
@@ -120,7 +121,9 @@ type ResponseFormat struct {
 
 // CLIConfig contains CLI-specific configuration
 type CLIConfig struct {
-	DefaultProvider string `json:"defaultProvider,omitempty" yaml:"defaultProvider"`
+	DefaultProvider       string `json:"defaultProvider,omitempty" yaml:"defaultProvider"`
+	DefaultModel          string `json:"defaultModel,omitempty" yaml:"defaultModel,omitempty"`
+	DefaultSmallFastModel string `json:"defaultSmallFastModel,omitempty" yaml:"defaultSmallFastModel,omitempty"`
 }
 
 // Loader handles configuration loading with injectable paths
@@ -245,63 +248,6 @@ func DefaultConfig() *Config {
 	_ = yaml.Unmarshal(defaultConfigYAML, &cfg)
 	cfg.Providers = make(map[string]Provider)
 	return &cfg
-}
-
-// SetDefaultProvider updates only the cli.defaultProvider field in the config
-// file on disk. It uses yaml.Node to preserve comments and env-var templates.
-func SetDefaultProvider(name string) error {
-	l := NewLoader()
-	if l.initErr != nil {
-		return l.initErr
-	}
-	path := l.ConfigPath()
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read config: %w", err)
-	}
-
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("parse config: %w", err)
-	}
-
-	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return fmt.Errorf("unexpected YAML structure in config")
-	}
-
-	root := doc.Content[0]
-	cliNode := findMapValue(root, "cli")
-	if cliNode == nil {
-		root.Content = append(root.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: "cli"},
-			&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{
-				{Kind: yaml.ScalarNode, Value: "defaultProvider"},
-				{Kind: yaml.ScalarNode, Value: name},
-			}},
-		)
-	} else {
-		dpNode := findMapValue(cliNode, "defaultProvider")
-		if dpNode == nil {
-			cliNode.Content = append(cliNode.Content,
-				&yaml.Node{Kind: yaml.ScalarNode, Value: "defaultProvider"},
-				&yaml.Node{Kind: yaml.ScalarNode, Value: name},
-			)
-		} else {
-			dpNode.Value = name
-		}
-	}
-
-	out, err := yaml.Marshal(&doc)
-	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
-	}
-
-	if err := writeFileAtomic(path, out, 0600); err != nil {
-		return fmt.Errorf("write config: %w", err)
-	}
-
-	return nil
 }
 
 // findMapValue returns the value node for a given key in a YAML mapping node.

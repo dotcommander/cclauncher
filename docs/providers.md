@@ -216,7 +216,7 @@ ccl --provider omlx        # localhost:8000
 | Endpoint | `http://localhost:8000` (override: `OMLX_BASE_URL`) |
 | Model | User-selected (`OMLX_MODEL`) |
 | Small/Fast | User-selected (`OMLX_SMALL_MODEL`) |
-| Auth | `OMLX_API_KEY` (optional) |
+| Auth | `OMLX_API_KEY`, or local placeholder `omlx` to avoid account OAuth |
 
 `omlx` targets a local MLX-backed Anthropic-compatible server on macOS. Override the endpoint and models without editing config:
 
@@ -228,15 +228,15 @@ export OMLX_SMALL_MODEL="$OMLX_MODEL"
 
 ## Switching Providers
 
-Switch for a single session with `--provider`:
+Select a provider with `--provider`:
 
 ```bash
 ccl --provider deepseek "review this PR"
 ```
 
-Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only.
+Run bare `ccl` at an interactive terminal to open the provider picker. It pre-selects the last successfully completed provider/model pair. Type a displayed number and press Enter to select quickly (including multi-digit numbers), or keep using arrow keys and `/` filtering. Backspace corrects a number; out-of-range numbers cannot submit. After a session exits with status 0, CCL saves the selected pair as the next default; failures and metadata/admin commands do not change it.
 
-Set the default provider by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`. When stdin is not a terminal, bare `ccl` uses that default without prompting.
+Defaults are saved under `cli` in `~/.config/cclauncher/config.yaml`, preserving provider templates and credentials. When stdin is not a terminal, bare `ccl` uses that default without prompting. See [configuration.md](configuration.md) for model override precedence.
 
 ## Environment Variable Overrides
 

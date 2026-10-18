@@ -71,9 +71,11 @@ providers:
   omlx:
     authRequired: false
     baseUrl: "${OMLX_BASE_URL:-http://localhost:8000}"
-    authToken: "${OMLX_API_KEY}"
+    # A local placeholder avoids falling back to Claude account OAuth.
+    authToken: "${OMLX_API_KEY:-omlx}"
     model: "${OMLX_MODEL}"
     smallFastModel: "${OMLX_SMALL_MODEL}"
+    maxContextTokens: 0
 
 doctor:
   probeConcurrency: 4

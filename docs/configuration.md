@@ -23,7 +23,18 @@ Existing explicit model values are preserved. Updating CCL does not rewrite your
 user config or remove previously saved model choices. Environment variables only
 apply where the config contains their interpolation templates.
 
-Set the default provider by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
+CCL always remembers the provider and startup model after a session exits successfully
+(exit status 0), including `--provider` and `--model` selections. The next launch uses
+that pair, and the picker pre-selects it. Failed/canceled sessions and help, version,
+or administrative commands leave the previous default unchanged. In-session `/model`
+switches are managed by Claude Code and are not captured by CCL.
+
+The pair is stored as `cli.defaultProvider`, `cli.defaultModel`, and
+`cli.defaultSmallFastModel` in `~/.config/cclauncher/config.yaml`. Provider credentials
+and model interpolation templates are not rewritten. Explicit `--model` and matching
+`router.default` overrides still take precedence. To choose a new model from a
+provider's config/environment after one has been remembered, clear the saved model
+fields or pass `--model`.
 
 ## Config File Location
 
@@ -94,10 +105,13 @@ providers:
     oauthToken: ""                # OAuth token — rarely used; claude handles its own auth
     model: "${MY_MODEL}"          # Explicit primary model (required except native Anthropic)
     smallFastModel: "${MY_SMALL_MODEL}" # Optional explicit background/subagent model
+    maxContextTokens: 0          # Real context size for a custom model; 0 leaves defaults
 
 # --- CLI ---------------------------------------------------------------------
 cli:
-  defaultProvider: "zai"         # Picker pre-selection and non-TTY fallback
+  defaultProvider: "zai"         # Last successful provider; picker/non-TTY default
+  defaultModel: ""              # Last successful startup model
+  defaultSmallFastModel: ""     # Matching background/subagent model
 
 # --- Optimization ------------------------------------------------------------
 optimization:
@@ -138,6 +152,7 @@ The `optimization` block controls environment variables passed to every `claude`
 | `oauthToken` | `oauthToken` | `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token for Anthropic providers |
 | `model` | `model` | `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL` | Primary model |
 | `smallFastModel` | `smallFastModel` | `ANTHROPIC_SMALL_FAST_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL` | Background and subagent model |
+| `maxContextTokens` | `maxContextTokens` | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | Real custom-model context size; 0 leaves Claude Code defaults |
 
 ## Inspect the Loaded Config
 
@@ -315,8 +330,8 @@ and clear competing `apiKey` and `oauthToken` values.
 probes. Omission inherits the shipped setting; nonpositive values are rejected.
 
 Saving keeps preset references declarative. General YAML comments and environment
-source templates are not preserved by `Save`; setting the default provider separately
-preserves them. Atomic writes follow legitimate symlinks, preserve target permissions,
+source templates are not preserved by `Save`; remembering the successful selection
+updates only CLI defaults and preserves them. Atomic writes follow legitimate symlinks, preserve target permissions,
 and sync the replacement and containing directory. A failure after replacement reports
 that the new file is already in place. Dangling symlinks are refused.
 

@@ -8,6 +8,9 @@ import (
 
 // ValidateProviderEndpoint is shared by launch and doctor field checks.
 func ValidateProviderEndpoint(p Provider) error {
+	if p.MaxContextTokens < 0 {
+		return fmt.Errorf("maxContextTokens must not be negative")
+	}
 	u, err := url.Parse(p.BaseURL)
 	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
 		return fmt.Errorf("baseUrl must be an absolute HTTP(S) URL")

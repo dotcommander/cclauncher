@@ -61,7 +61,7 @@ Only CCL's provider selector is consumed. Other flags pass through to
 ccl
 ```
 
-Bare `ccl` opens the provider picker at an interactive terminal. It pre-selects `cli.defaultProvider`; press Enter to launch it or pick another provider for that launch only. Both supplied input and output must be terminals; redirects use that default without prompting. Launch arguments skip the picker.
+Bare `ccl` opens the provider picker at an interactive terminal. It pre-selects `cli.defaultProvider`; press Enter to launch it or type another provider's number and press Enter. Arrow keys and `/` filtering still work; multi-digit choices are supported. Successful sessions (exit status 0) save their provider/startup-model pair as the next default; failures and metadata/admin commands do not. Both supplied input and output must be terminals; redirects use that default without prompting. Launch arguments skip the picker.
 
 Set `cli.defaultProvider` by editing `~/.config/cclauncher/config.yaml`.
 

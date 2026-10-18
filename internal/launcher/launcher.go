@@ -38,6 +38,9 @@ func SetupEnvironment(p config.Provider, opt config.OptimizationConfig) []string
 	set("ANTHROPIC_DEFAULT_SONNET_MODEL", p.Model)
 	set("ANTHROPIC_DEFAULT_HAIKU_MODEL", p.SmallFastModel)
 	set("CLAUDE_CODE_SUBAGENT_MODEL", p.SmallFastModel)
+	if p.MaxContextTokens > 0 {
+		set("CLAUDE_CODE_MAX_CONTEXT_TOKENS", strconv.Itoa(p.MaxContextTokens))
+	}
 
 	// Optimization flags — only set when enabled/non-zero so users can still
 	// override via parent shell.
@@ -95,6 +98,15 @@ func ExecuteClaudeCode(env []string, args []string) error {
 	// argv[0] is the command name by convention
 	argv := append([]string{claudePath}, args...)
 	return syscall.Exec(claudePath, argv, env)
+}
+
+// LaunchIO waits for the child on both direct and transformed launch paths.
+// Returning after the child exits lets the caller remember successful sessions.
+func LaunchIO(ctx context.Context, p config.Provider, opt config.OptimizationConfig, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if p.Transformer.HasRules() {
+		return LaunchWithProxyIO(ctx, p, opt, args, stdin, stdout, stderr)
+	}
+	return runClaudeContext(ctx, SetupEnvironment(p, opt), args, stdin, stdout, stderr)
 }
 
 // LaunchWithProxy starts a local proxy for request transformation, then runs

@@ -106,7 +106,7 @@ environment variables apply where your config uses their templates.
 
 Run bare `ccl` at an interactive terminal to open the provider picker. It shows only
 launchable providers and pre-selects the configured default if eligible; press Enter
-to launch the selection or choose another provider for that launch only. Both input and output must be terminals for the picker. With redirected input or output, bare `ccl` uses the configured default without prompting. Launches with arguments also use that default unless a provider is selected.
+to launch the selection or choose another provider by number + Enter (arrow keys still work). A session that exits with status 0 remembers its provider/startup-model pair as the next default; failures and metadata/admin commands leave it unchanged. Both input and output must be terminals for the picker. With redirected input or output, bare `ccl` uses the configured default without prompting. Launches with arguments also use that default unless a provider is selected.
 
 Set that default by editing `cli.defaultProvider` in `~/.config/cclauncher/config.yaml`.
 

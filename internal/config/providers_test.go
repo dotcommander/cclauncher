@@ -113,10 +113,19 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 		assert.Empty(t, claude.AuthToken)
 	})
 
-	t.Run("omlx ships without embedded auth token", func(t *testing.T) {
+	t.Run("omlx uses a local placeholder instead of account oauth", func(t *testing.T) {
+		t.Parallel()
 		omlx, _ := GetProvider(cfg, "omlx")
-		assert.Empty(t, omlx.AuthToken)
+		expected := os.Getenv("OMLX_API_KEY")
+		if expected == "" {
+			expected = "omlx"
+		}
+		if override, ok := os.LookupEnv("CCL_OMLX_API_KEY"); ok {
+			expected = override
+		}
+		assert.Equal(t, expected, omlx.AuthToken)
 		assert.Empty(t, omlx.APIKey)
+		assert.Empty(t, omlx.OAuthToken)
 	})
 }
 
