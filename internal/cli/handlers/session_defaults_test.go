@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/dotcommander/cclauncher/internal/config"
@@ -111,4 +112,35 @@ func TestRememberFailureIsReported(t *testing.T) {
 	}
 	err := handleCode(context.Background(), cfg, nil, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps)
 	require.ErrorContains(t, err, "session succeeded but saving default selection failed")
+}
+
+func TestExplicitPrimaryAliasRestoresConfiguredModel(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{{"--model", "opus"}, {"--model=sonnet"}, {"--model", "default"}, {"--model", "haiku", "--model", "opus"}} {
+		for _, router := range []string{"", "local:routed"} {
+			t.Run(strings.Join(args, " ")+router, func(t *testing.T) {
+				optional := false
+				cfg := &config.Config{
+					Providers: map[string]config.Provider{"local": {BaseURL: "http://localhost:8000", Model: "primary", SmallFastModel: "small", AuthRequired: &optional}},
+					CLI:       config.CLIConfig{DefaultProvider: "local", DefaultModel: "remembered", DefaultSmallFastModel: "remembered-small"},
+				}
+				cfg.Router.Default = router
+				want, small := "primary", "small"
+				if router != "" {
+					want, small = "routed", "routed"
+				}
+				deps := launchDependencies{
+					run: func(_ context.Context, p config.Provider, _ config.OptimizationConfig, actual []string, _ CodeOptions) error {
+						require.Equal(t, want, p.Model)
+						require.Equal(t, small, p.SmallFastModel)
+						require.Equal(t, args, actual)
+						return nil
+					},
+					remember: func(_ string, p config.Provider) error { require.Equal(t, want, p.Model); return nil },
+				}
+				require.NoError(t, handleCode(context.Background(), cfg, args, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps))
+				require.Equal(t, "primary", cfg.Providers["local"].Model)
+			})
+		}
+	}
 }

@@ -68,7 +68,7 @@ func handleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		}
 	}
 
-	providerName, provider, err := resolveProvider(providerName, cfg)
+	providerName, provider, err := resolveProviderForModel(providerName, cfg, commandLineModel(claudeArgs))
 	if err != nil {
 		return err
 	}
@@ -162,6 +162,10 @@ func extractProviderFromArgs(args []string) (string, []string, error) {
 // resolveProvider validates a provider name and returns its resolved name and config.
 // If name is empty, uses the config default.
 func resolveProvider(name string, cfg *config.Config) (string, config.Provider, error) {
+	return resolveProviderForModel(name, cfg, "")
+}
+
+func resolveProviderForModel(name string, cfg *config.Config, model string) (string, config.Provider, error) {
 	if name == "" {
 		name = cfg.CLI.DefaultProvider
 	}
@@ -171,7 +175,9 @@ func resolveProvider(name string, cfg *config.Config) (string, config.Provider, 
 		return "", config.Provider{}, unknownProviderError(name)
 	}
 
-	if name == cfg.CLI.DefaultProvider && cfg.CLI.DefaultModel != "" {
+	// Explicit primary aliases restore configured slots instead of remembered ones.
+	primaryAlias := model == "default" || model == "opus" || model == "sonnet"
+	if !primaryAlias && name == cfg.CLI.DefaultProvider && cfg.CLI.DefaultModel != "" {
 		provider.Model = cfg.CLI.DefaultModel
 		provider.SmallFastModel = cfg.CLI.DefaultSmallFastModel
 	}

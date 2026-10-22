@@ -64,3 +64,21 @@ func TestHandleDoctor_JSONNoSecrets(t *testing.T) {
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(got), "["), "json output should be an array")
 	require.NotContains(t, got, "secret-token")
 }
+
+func TestDoctorUsesEffectiveModel(t *testing.T) {
+	t.Parallel()
+	for _, router := range []bool{false, true} {
+		for _, name := range []string{"", "alpha"} {
+			cfg := doctorTestConfig()
+			cfg.Providers = map[string]config.Provider{"alpha": {BaseURL: "https://a.example.com", AuthToken: "secret-token"}}
+			if router {
+				cfg.Router.Default = "alpha:resolved"
+			} else {
+				cfg.CLI.DefaultModel = "resolved"
+			}
+			_, err := runDoctorTest(cfg, DoctorOptions{Provider: name, JSON: true})
+			require.NoError(t, err)
+			require.Empty(t, cfg.Providers["alpha"].Model)
+		}
+	}
+}

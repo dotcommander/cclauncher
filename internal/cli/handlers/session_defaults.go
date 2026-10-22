@@ -15,18 +15,7 @@ type launchDependencies struct {
 // selectedModel records command-line model overrides rather than the configured
 // model they supersede. CCL maps family aliases through the provider's slots.
 func selectedModel(p config.Provider, args []string) config.Provider {
-	var model string
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--" {
-			break
-		}
-		if args[i] == "--model" && i+1 < len(args) {
-			i++
-			model = args[i]
-		} else if value, ok := strings.CutPrefix(args[i], "--model="); ok {
-			model = value
-		}
-	}
+	model := commandLineModel(args)
 	switch model {
 	case "", "default", "opus", "sonnet":
 		return p
@@ -55,4 +44,20 @@ func remembersSession(args []string) bool {
 		}
 	}
 	return true
+}
+
+func commandLineModel(args []string) string {
+	var model string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--" {
+			break
+		}
+		if args[i] == "--model" && i+1 < len(args) {
+			i++
+			model = args[i]
+		} else if value, ok := strings.CutPrefix(args[i], "--model="); ok {
+			model = value
+		}
+	}
+	return model
 }

@@ -40,6 +40,15 @@ func HandleDoctor(ctx context.Context, out io.Writer, cfg *config.Config, opts D
 		return err
 	}
 
+	providers := make(map[string]config.Provider, len(names))
+	for _, name := range names {
+		_, provider, err := resolveProvider(name, cfg)
+		if err != nil {
+			return err
+		}
+		providers[name] = provider
+	}
+
 	var client *http.Client
 	if opts.CheckNet {
 		client = &http.Client{Timeout: actions.DoctorNetTimeout}
@@ -51,13 +60,13 @@ func HandleDoctor(ctx context.Context, out io.Writer, cfg *config.Config, opts D
 		if cfg.Doctor.ProbeConcurrency <= 0 {
 			return fmt.Errorf("doctor.probeConcurrency must be positive")
 		}
-		probes, err = probeProviders(ctx, client, names, cfg.Providers, cfg.Doctor.ProbeConcurrency)
+		probes, err = probeProviders(ctx, client, names, providers, cfg.Doctor.ProbeConcurrency)
 		if err != nil {
 			return err
 		}
 	}
 	for i, name := range names {
-		results = append(results, actions.RunChecks(name, cfg.Providers[name])...)
+		results = append(results, actions.RunChecks(name, providers[name])...)
 		if opts.CheckNet {
 			results = append(results, probes[i])
 		}
