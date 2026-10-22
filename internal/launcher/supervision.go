@@ -27,7 +27,7 @@ func superviseChildWithGrace(ctx context.Context, path string, env, args []strin
 	cmd.Env = env
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
 	signals := make(chan os.Signal, 4)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer signal.Stop(signals)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start claude: %w", err)
@@ -61,7 +61,7 @@ func superviseChildWithGrace(ctx context.Context, path string, env, args []strin
 			cancel = nil
 			terminate()
 		case sig := <-signals:
-			if sig == syscall.SIGTERM {
+			if sig == syscall.SIGTERM || sig == syscall.SIGHUP {
 				terminate()
 				continue
 			}

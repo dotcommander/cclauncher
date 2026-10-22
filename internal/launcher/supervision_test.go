@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -24,6 +25,31 @@ func TestSupervisionHelper(t *testing.T) {
 		return
 	}
 	switch role {
+	case "hup-parent", "hup-parent-ignore":
+		childRole := "hup-child"
+		if role == "hup-parent-ignore" {
+			childRole = "hup-child-ignore"
+		}
+		env := append(os.Environ(), "CCL_SUPERVISION_FIXTURE="+childRole)
+		err := superviseChildWithGrace(context.Background(), os.Args[0], env, []string{"-test.run=^TestSupervisionHelper$"}, nil, os.Stdout, os.Stderr, 100*time.Millisecond)
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
+			os.Exit(2)
+		}
+		want := syscall.SIGTERM
+		if role == "hup-parent-ignore" {
+			want = syscall.SIGKILL
+		}
+		if exit.Sys().(syscall.WaitStatus).Signal() != want {
+			os.Exit(3)
+		}
+		os.Exit(0)
+	case "hup-child", "hup-child-ignore":
+		if role == "hup-child-ignore" {
+			signal.Ignore(syscall.SIGTERM)
+		}
+		fmt.Println(os.Getpid())
+		<-time.After(time.Hour)
 	case "exit":
 		os.Exit(7)
 	case "signal":
@@ -115,5 +141,41 @@ func TestLocalProxyCredentialIsolation(t *testing.T) {
 		require.NotEqual(t, "upstream-secret", value)
 		require.NotEqual(t, "other-secret", value)
 		require.NotEqual(t, "oauth-secret", value)
+	}
+}
+
+func TestSIGHUPTerminatesSupervisedChild(t *testing.T) {
+	t.Parallel()
+	for _, role := range []string{"hup-parent", "hup-parent-ignore"} {
+		t.Run(role, func(t *testing.T) {
+			cmd := exec.Command(os.Args[0], "-test.run=^TestSupervisionHelper$")
+			cmd.Env = append(os.Environ(), "CCL_SUPERVISION_FIXTURE="+role)
+			stdout, err := cmd.StdoutPipe()
+			require.NoError(t, err)
+			require.NoError(t, cmd.Start())
+			t.Cleanup(func() { _ = cmd.Process.Kill() })
+			ready := make(chan string, 1)
+			go func() { scanner := bufio.NewScanner(stdout); scanner.Scan(); ready <- scanner.Text() }()
+			var line string
+			select {
+			case line = <-ready:
+			case <-time.After(5 * time.Second):
+				t.Fatal("child did not become ready")
+			}
+			pid, err := strconv.Atoi(line)
+			require.NoError(t, err)
+			child, err := os.FindProcess(pid)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = child.Kill() })
+			require.NoError(t, cmd.Process.Signal(syscall.SIGHUP))
+			done := make(chan error, 1)
+			go func() { done <- cmd.Wait() }()
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("SIGHUP did not stop supervisor")
+			}
+		})
 	}
 }
