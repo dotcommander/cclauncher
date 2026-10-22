@@ -29,7 +29,7 @@ func parseConfig(data []byte) (*Config, error) {
 		if err := normalizeMergeKeys(doc.Content[0]); err != nil {
 			return nil, err
 		}
-		mergeNodes(doc.Content[0], defaults.Content[0], "")
+		mergeNodes(doc.Content[0], defaults.Content[0])
 	}
 	if err := interpolateNode(doc.Content[0], reflect.TypeFor[Config](), ""); err != nil {
 		return nil, err
@@ -55,31 +55,24 @@ func parseConfig(data []byte) (*Config, error) {
 	return &cfg, nil
 }
 
-func mergeNodes(dst, src *yaml.Node, path string) {
+func mergeNodes(dst, src *yaml.Node) {
 	if dst.Kind != yaml.MappingNode || src.Kind != yaml.MappingNode {
 		return
 	}
 	for i := 0; i+1 < len(src.Content); i += 2 {
 		key := src.Content[i].Value
-		// Existing providers inherit policy and endpoints, never credentials.
-		if strings.HasPrefix(path, "providers.") && (key == "authToken" || key == "apiKey" || key == "oauthToken") {
-			continue
-		}
 		val := findMapValue(dst, key)
 		if val == nil {
 			dst.Content = append(dst.Content, src.Content[i], src.Content[i+1])
 			continue
 		}
-		next := key
-		if path != "" {
-			next = path + "." + key
-		}
-		mergeNodes(val, src.Content[i+1], next)
+		mergeNodes(val, src.Content[i+1])
 	}
 }
 
 func interpolateNode(n *yaml.Node, typ reflect.Type, path string) error {
-	if n.Tag == "!!null" && typ != nil && typ.Kind() == reflect.Pointer {
+	// Preserve YAML null semantics for every field type.
+	if n.Tag == "!!null" {
 		return nil
 	}
 	for typ != nil && typ.Kind() == reflect.Pointer {

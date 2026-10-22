@@ -184,3 +184,22 @@ providers:
 	require.True(t, cfg.Optimization.DisableErrorReporting)
 	require.Equal(t, "literal-key", cfg.Providers["custom"].Transformer.Rules[0].ModifyBody["<<"])
 }
+
+func TestYAMLNullPreservesDecoderSemantics(t *testing.T) {
+	for _, null := range []string{"null", "~", ""} {
+		t.Run(null, func(t *testing.T) {
+			cfg, err := parseConfig([]byte("providers:\n  custom:\n    model: " + null + "\n    authToken: " + null + "\n    authRequired: " + null + "\n    maxContextTokens: " + null + "\noptimization:\n  disableTelemetry: " + null + "\n  apiTimeoutMs: " + null + "\n"))
+			require.NoError(t, err)
+			require.Empty(t, cfg.Providers["custom"].Model)
+			require.Empty(t, cfg.Providers["custom"].AuthToken)
+			require.Nil(t, cfg.Providers["custom"].AuthRequired)
+			require.Zero(t, cfg.Providers["custom"].MaxContextTokens)
+			require.False(t, cfg.Optimization.DisableTelemetry)
+			require.Zero(t, cfg.Optimization.APITimeoutMs)
+		})
+	}
+	cfg, err := parseConfig([]byte("providers:\n  custom:\n    model: 'null'\n    authToken: '~'\n"))
+	require.NoError(t, err)
+	require.Equal(t, "null", cfg.Providers["custom"].Model)
+	require.Equal(t, "~", cfg.Providers["custom"].AuthToken)
+}
