@@ -73,6 +73,10 @@ func (s TerminalProviderSelector) SelectProvider(ctx context.Context, choices []
 	if err := form.RunWithContext(ctx); err != nil {
 		return "", fmt.Errorf("select provider: %w", err)
 	}
+	// A terminal signal can stop the program without submitting the form.
+	if form.State != huh.StateCompleted {
+		return "", fmt.Errorf("select provider: %w", huh.ErrUserAborted)
+	}
 	return selected, nil
 }
 

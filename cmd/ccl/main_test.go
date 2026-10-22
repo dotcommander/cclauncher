@@ -1,6 +1,8 @@
 package main
 
 import (
+	"charm.land/huh/v2"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -42,5 +44,14 @@ func TestChildExitCode(t *testing.T) {
 				t.Fatalf("code=%d want=%d err=%v", got, tc.want, err)
 			}
 		})
+	}
+}
+
+func TestPickerAbortExitCode(t *testing.T) {
+	if got := exitCode(fmt.Errorf("select provider: %w", huh.ErrUserAborted)); got != 130 {
+		t.Fatalf("picker abort code=%d want=130", got)
+	}
+	if got := exitCode(fmt.Errorf("other failure")); got != 1 {
+		t.Fatalf("error code=%d want=1", got)
 	}
 }

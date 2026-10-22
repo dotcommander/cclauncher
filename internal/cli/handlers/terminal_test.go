@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/huh/v2"
 	"github.com/charmbracelet/x/xpty"
 	"github.com/stretchr/testify/require"
 )
@@ -76,4 +77,38 @@ func TestPickerRequiresBareLaunchAndBothTerminals(t *testing.T) {
 			t.Fatal("picker opened for args or redirected stream")
 		}
 	}
+}
+
+func TestTerminalPickerCtrlC(t *testing.T) {
+	t.Setenv("TERM", "xterm-256color")
+	pty, err := xpty.NewUnixPty(80, 24)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pty.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	sent := make(chan error, 1)
+	go func() {
+		var screen []byte
+		chunk := make([]byte, 1024)
+		for len(screen) < 64<<10 {
+			n, err := pty.Read(chunk)
+			screen = append(screen, chunk[:n]...)
+			if bytes.Contains(screen, []byte("1. alpha")) {
+				_, err = pty.Write([]byte{3})
+				sent <- err
+				return
+			}
+			if err != nil {
+				sent <- err
+				return
+			}
+		}
+		sent <- fmt.Errorf("picker did not render")
+	}()
+	selector := TerminalProviderSelector{In: pty.Slave(), Out: pty.Slave()}
+	selected, err := selector.SelectProvider(ctx, []ProviderChoice{{Name: "alpha"}}, "alpha")
+	_ = pty.Close()
+	require.NoError(t, <-sent)
+	require.Empty(t, selected)
+	require.ErrorIs(t, err, huh.ErrUserAborted)
 }

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"syscall"
 
+	"charm.land/huh/v2"
 	"github.com/dotcommander/cclauncher/internal/cli"
 )
 
@@ -29,12 +30,17 @@ func main() {
 	slog.SetDefault(slog.New(handler))
 
 	if err := cli.Execute(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if !errors.Is(err, huh.ErrUserAborted) {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(exitCode(err))
 	}
 }
 
 func exitCode(err error) int {
+	if errors.Is(err, huh.ErrUserAborted) {
+		return 130
+	}
 	var child *exec.ExitError
 	if errors.As(err, &child) {
 		if status, ok := child.Sys().(syscall.WaitStatus); ok && status.Signaled() {
