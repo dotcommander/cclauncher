@@ -6,13 +6,14 @@ It works because Claude Code only speaks the Anthropic Messages API. Any provide
 
 ## How it works
 
-`ccl --provider deepseek` does three things:
+`ccl --provider deepseek` does four things:
 
 1. Reads the `deepseek` entry from your config — base URL, API key, model name.
 2. Sets the `ANTHROPIC_*` environment variables to match, and removes any pre-existing `ANTHROPIC_*` / `CLAUDE_CODE_*` variables from the environment so they can't leak through.
-3. Replaces itself with `claude` via `syscall.Exec`.
+3. Starts `claude` with your terminal and streams, then supervises it until it exits.
+4. Remembers the provider/startup-model pair after a successful session (exit status 0). Failed sessions and metadata/admin commands do not change the default.
 
-There's no proxy or translation layer in the request path — CCL exits the moment `claude` starts, and the process you're left talking to *is* Claude Code, configured. (Transformer rules for non-Anthropic-shaped APIs exist but are opt-in; nothing runs between you and the model unless you set them up.)
+Normal launches have no proxy or translation layer in the request path: Claude Code talks directly to the configured provider. CCL stays alive to supervise the child. Opt-in transformer rules add a local proxy, which CCL closes when the session ends.
 
 ## Install
 
@@ -37,7 +38,7 @@ Shipped defaults do not choose models. Native `claude` uses Claude Code's select
 
 ```bash
 ccl                                  # pick a provider; pre-selects the default
-ccl --provider deepseek              # this session only; skips the picker
+ccl --provider deepseek              # skips the picker; success remembers choice
 ccl --provider synthetic "fix the null pointer in main.go"
 ```
 
@@ -45,7 +46,7 @@ Launch arguments other than CCL provider selectors pass through to `claude` unch
 
 | Command | Description |
 |---------|-------------|
-| `ccl --provider <name>` | Select a provider for this session |
+| `ccl --provider <name>` | Select a provider; successful sessions remember it |
 | `ccl providers` | List providers and whether each key is set |
 | `ccl doctor [--provider <name>] [--json] [--check-net]` | Check provider configuration and optional reachability |
 | `ccl update [--check]` | Update CCL |

@@ -46,7 +46,7 @@ ccl doctor --check-net
 The default checks are local. `--check-net` also probes provider reachability.
 Use `--json` for scripts and CI.
 
-### Switch for one run
+### Choose a provider without the picker
 
 ```bash
 ccl --provider deepseek -p "summarize this repo"

@@ -34,7 +34,9 @@ The pair is stored as `cli.defaultProvider`, `cli.defaultModel`, and
 and model interpolation templates are not rewritten. Explicit `--model` and matching
 `router.default` overrides still take precedence. To choose a new model from a
 provider's config/environment after one has been remembered, clear the saved model
-fields or pass `--model`.
+fields or pass `--model default`, `--model opus`, or `--model sonnet`. These
+explicit primary aliases restore the configured model slots before applying a
+matching `router.default` override. A bare launch still uses the remembered pair.
 
 ## Config File Location
 
@@ -78,7 +80,14 @@ The format is `CCL_` + provider name in uppercase + `_API_KEY`.
 **Auth priority order (highest to lowest):**
 1. `CCL_<PROVIDER>_API_KEY` environment variable
 2. `authToken` in `config.yaml` (after `${VAR}` interpolation)
-3. Built-in default (empty — requires you to set an env var or config value)
+3. Shipped provider template (for example, `${SYNTHETIC_API_KEY}` or a local placeholder)
+
+Partial provider definitions inherit omitted credential fields (`authToken`,
+`apiKey`, and `oauthToken`) from shipped defaults. Set a field to `""` or YAML
+`null` to clear that inherited value. A `CCL_<PROVIDER>_API_KEY` environment
+variable still takes priority, including when it is explicitly empty.
+Changing `baseUrl` alone also inherits credentials; clear or replace them when
+switching to a different endpoint.
 
 ## Full YAML Schema
 
@@ -140,7 +149,7 @@ The `optimization` block controls environment variables passed to every `claude`
 | `maxOutputTokens` | `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | `200000` | Reduce to limit output length |
 | `nodeMaxOldSpaceSize` | `NODE_OPTIONS=--max-old-space-size=N` | `8192` | Increase for very large codebases |
 
-> **Note:** CCL strips any `ANTHROPIC_*` and `CLAUDE_CODE_*` variables from the parent shell before launching `claude`. Without stripping, a stale `ANTHROPIC_BASE_URL` from a previous session would silently route your provider-switched request to the wrong endpoint — and you'd see it as an auth failure, not a misroute. The `DISABLE_*` and `API_TIMEOUT_MS` variables are not stripped — you can still override them from your shell.
+> **Note:** CCL strips any `ANTHROPIC_*` and `CLAUDE_CODE_*` variables from the parent shell before launching `claude`. Without stripping, a stale `ANTHROPIC_BASE_URL` from a previous session would silently route your provider-switched request to the wrong endpoint — and you'd see it as an auth failure, not a misroute. Bare variables such as `DISABLE_*` and `API_TIMEOUT_MS` are not stripped, but enabled or positive CCL settings override their parent-shell values. Disable or zero the corresponding CCL setting to retain a bare parent value. `NODE_OPTIONS` is likewise replaced when its CCL setting is positive. `ANTHROPIC_*` and `CLAUDE_CODE_*` parent values remain stripped even when a setting is disabled.
 
 ## Provider Fields Reference
 
@@ -317,9 +326,12 @@ scalar values once. Keys are literal. Replacement punctuation, newlines and embe
 Nested expressions in source templates are rejected. `${VAR:-}` supports an empty
 fallback. String fields remain strings; declared numeric and boolean fields are
 converted according to their schema. Explicit empty values and `false` are preserved.
-Existing providers inherit omitted non-secret endpoint/model-template/policy fields;
-model templates have no fallback IDs, and explicit model values (including empty
-strings) are preserved. Credentials are never filled from a shipped provider template.
+YAML `null`, `~`, and empty scalar values retain YAML null semantics: scalar fields
+decode to their zero value and optional pointers remain unset. Quoted `"null"` and
+`"~"` remain strings.
+Existing providers inherit omitted fields from shipped templates, including
+credentials, endpoints, model templates, and policy. Model templates have no
+fallback IDs. Explicit values, including empty strings and null, are preserved.
 
 Credential overrides uppercase the provider name and replace hyphens with underscores.
 `CCL_MY_PROVIDER_API_KEY` takes precedence over legacy `CCL_MY-PROVIDER_API_KEY`.

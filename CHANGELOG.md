@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.6 (2026-10-22)
+
+### Fixed
+
+- Abort canceled or interrupted provider pickers without launching Claude; report cancellation with exit status 130.
+- Restore configured model slots for explicit primary aliases and use effective models in doctor checks.
+- Preserve YAML null semantics, inherit omitted provider credentials, and save successful selections into empty configuration documents.
+- Shut down supervised Claude sessions on SIGHUP, including children that ignore graceful termination.
+- Preserve proxy query parameters, User-Agent and repeated beta headers; return JSON route errors and correctly log JSON model names.
+
+### Changed
+
+- Correct documentation for supervised launches, remembered defaults, model aliases, credentials and environment overrides.
+- Partial provider entries inherit shipped credential templates unless explicitly cleared with empty or null values. Clear or replace credentials when changing an endpoint.
+
 ## v0.5.3 (2026-10-04)
 
 ### Added
