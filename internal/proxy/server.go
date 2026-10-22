@@ -67,6 +67,14 @@ func (p *Proxy) Start() (int, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/messages", p.handleMessages)
 	mux.HandleFunc("POST /v1/messages/count_tokens", p.handleMessages)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/messages" || r.URL.Path == "/v1/messages/count_tokens" {
+			w.Header().Set("Allow", http.MethodPost)
+			writeError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method not allowed")
+			return
+		}
+		writeError(w, http.StatusNotFound, "not_found_error", "endpoint not found")
+	})
 
 	p.server = &http.Server{Handler: mux}
 
@@ -148,7 +156,10 @@ func (p *Proxy) handleMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) forwardRequest(orig *http.Request, body []byte, extraHeaders map[string]string) (*http.Response, error) {
-	targetURL := p.providerURL + orig.URL.Path
+	targetURL := p.providerURL + orig.URL.EscapedPath()
+	if orig.URL.RawQuery != "" {
+		targetURL += "?" + orig.URL.RawQuery
+	}
 
 	req, err := http.NewRequestWithContext(
 		orig.Context(), http.MethodPost, targetURL,
@@ -161,6 +172,7 @@ func (p *Proxy) forwardRequest(orig *http.Request, body []byte, extraHeaders map
 	req.Header.Set("Content-Type", "application/json")
 	copyRequestHeader(req, orig, "anthropic-version", "2023-06-01")
 	copyRequestHeader(req, orig, "anthropic-beta", "")
+	copyRequestHeader(req, orig, "User-Agent", "")
 
 	for k, v := range extraHeaders {
 		if strings.EqualFold(k, "host") {
@@ -185,8 +197,11 @@ func (p *Proxy) forwardRequest(orig *http.Request, body []byte, extraHeaders map
 // copyRequestHeader copies a header from orig to dst. If absent in orig and
 // fallback is non-empty, uses the fallback value.
 func copyRequestHeader(dst, orig *http.Request, key, fallback string) {
-	if v := orig.Header.Get(key); v != "" {
-		dst.Header.Set(key, v)
+	if values := orig.Header.Values(key); len(values) > 0 {
+		dst.Header.Del(key)
+		for _, value := range values {
+			dst.Header.Add(key, value)
+		}
 		return
 	}
 	if fallback != "" {
@@ -262,20 +277,17 @@ func (p *Proxy) streamSSE(ctx context.Context, w http.ResponseWriter, resp *http
 }
 
 func logRequestModel(body []byte) {
-	const marker = `"model":"`
-	s := string(body)
-	idx := strings.Index(s, marker)
-	if idx < 0 {
-		slog.Debug("proxy request", "model", "unknown")
+	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		return
 	}
-	start := idx + len(marker)
-	end := strings.IndexByte(s[start:], '"')
-	if end < 0 {
-		slog.Debug("proxy request", "model", "unknown")
-		return
+	var request struct {
+		Model string `json:"model"`
 	}
-	slog.Debug("proxy request", "model", s[start:start+end])
+	model := "unknown"
+	if err := json.Unmarshal(body, &request); err == nil && request.Model != "" {
+		model = request.Model
+	}
+	slog.Debug("proxy request", "model", model)
 }
 
 func writeError(w http.ResponseWriter, status int, kind, message string) {

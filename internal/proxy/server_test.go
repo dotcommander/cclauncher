@@ -3,7 +3,10 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -188,5 +191,101 @@ func TestStreamSSE_StopsOnClientDisconnect(t *testing.T) {
 		// Proxy abandoned the stream → upstream request context canceled.
 	case <-time.After(5 * time.Second):
 		t.Fatal("proxy did not stop draining upstream after client disconnect")
+	}
+}
+
+func TestForwardRequestPreservesRepeatedBetaHeaders(t *testing.T) {
+	t.Parallel()
+	received := make(chan []string, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Values("anthropic-beta")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	p := NewProxy(upstream.URL, "token", "", nil)
+	defer p.Shutdown(context.Background())
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	req.Header.Add("anthropic-beta", "first")
+	req.Header.Add("anthropic-beta", "second,third")
+	resp, err := p.forwardRequest(req, []byte(`{"model":"test"}`), nil)
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, []string{"first", "second,third"}, <-received)
+	require.Equal(t, []string{"first", "second,third"}, req.Header.Values("anthropic-beta"))
+}
+
+func TestForwardRequestPreservesQueryAndUserAgent(t *testing.T) {
+	t.Parallel()
+	received := make(chan [2]string, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- [2]string{r.URL.RequestURI(), r.UserAgent()}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	p := NewProxy(upstream.URL+"/anthropic", "token", "", nil)
+	defer p.Shutdown(context.Background())
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages?beta=true&key=a%2Bb&key=c", nil)
+	req.Header.Set("User-Agent", "claude-test/1.0")
+	resp, err := p.forwardRequest(req, []byte(`{}`), nil)
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, [2]string{"/anthropic/v1/messages?beta=true&key=a%2Bb&key=c", "claude-test/1.0"}, <-received)
+}
+
+func TestProxyUnsupportedRoutesUseJSON(t *testing.T) {
+	t.Parallel()
+	p := NewProxy("http://127.0.0.1:1", "token", "", nil)
+	port, err := p.Start()
+	require.NoError(t, err)
+	defer p.Shutdown(context.Background())
+	for _, tc := range []struct {
+		method, path string
+		status       int
+	}{
+		{http.MethodGet, "/v1/models", http.StatusNotFound},
+		{http.MethodPost, "/v1/messages/", http.StatusNotFound},
+		{http.MethodGet, "/v1/messages", http.StatusMethodNotAllowed},
+		{http.MethodPut, "/v1/messages/count_tokens", http.StatusMethodNotAllowed},
+	} {
+		req, err := http.NewRequest(tc.method, fmt.Sprintf("http://127.0.0.1:%d%s", port, tc.path), nil)
+		require.NoError(t, err)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		var body struct {
+			Type  string
+			Error struct {
+				Type    string
+				Message string
+			}
+		}
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		require.NoError(t, err)
+		require.Equal(t, tc.status, resp.StatusCode)
+		require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+		require.Equal(t, "error", body.Type)
+		require.NotEmpty(t, body.Error.Type)
+		if tc.status == http.StatusMethodNotAllowed {
+			require.Equal(t, "POST", resp.Header.Get("Allow"))
+		}
+	}
+}
+
+func TestLogRequestModelUsesJSON(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	defer slog.SetDefault(previous)
+	for _, body := range []string{`{ "model" : "model with spaces" }`, `{"model":"escaped\"name"}`, `{"other":{"model":"nested"}, "model":"actual"}`, `{}`, `invalid`} {
+		output.Reset()
+		logRequestModel([]byte(body))
+		var record struct{ Model string }
+		require.NoError(t, json.Unmarshal(output.Bytes(), &record))
+		var request struct{ Model string }
+		want := "unknown"
+		if err := json.Unmarshal([]byte(body), &request); err == nil && request.Model != "" {
+			want = request.Model
+		}
+		require.Equal(t, want, record.Model)
 	}
 }
