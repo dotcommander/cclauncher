@@ -73,3 +73,20 @@ func TestRememberSelectionRejectsMalformedConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestRememberSelectionAcceptsEmptyDocument(t *testing.T) {
+	t.Parallel()
+	for _, input := range []string{"", " \n", "# comment only\n"} {
+		t.Run(input, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			require.NoError(t, os.WriteFile(path, []byte(input), 0600))
+			loader := NewLoaderWithPaths(dir, path)
+			require.NoError(t, loader.SetDefaultSelection("omlx", Provider{Model: "chosen"}))
+			cfg, err := loader.Load()
+			require.NoError(t, err)
+			require.Equal(t, "omlx", cfg.CLI.DefaultProvider)
+			require.Equal(t, "chosen", cfg.CLI.DefaultModel)
+		})
+	}
+}
