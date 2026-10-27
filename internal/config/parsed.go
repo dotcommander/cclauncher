@@ -39,6 +39,9 @@ func parseConfig(data []byte) (*Config, error) {
 		return nil, fmt.Errorf("decode config: invalid field type")
 	}
 	overrideFromEnv(&cfg)
+	if err := applyModelFallbacks(&cfg); err != nil {
+		return nil, err
+	}
 	if cfg.Doctor.ProbeConcurrency <= 0 {
 		return nil, fmt.Errorf("doctor.probeConcurrency must be positive")
 	}

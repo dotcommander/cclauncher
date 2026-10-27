@@ -1,8 +1,12 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 func defaultOptimization() OptimizationConfig {
@@ -53,4 +57,36 @@ func overrideFromEnv(cfg *Config) {
 			cfg.Providers[name] = p
 		}
 	}
+}
+
+// applyModelFallbacks fills empty model slots with the interpolated shipped
+// defaults. Upgraded installs still carry an older first-run template whose
+// bare ${X_MODEL} references resolve empty; this lets shipped model defaults
+// (zai's GLM pair) apply without rewriting the user's config file.
+func applyModelFallbacks(cfg *Config) error {
+	var defaults yaml.Node
+	if err := yaml.Unmarshal(defaultConfigYAML, &defaults); err != nil {
+		return fmt.Errorf("parse shipped defaults: %w", err)
+	}
+	if err := interpolateNode(defaults.Content[0], reflect.TypeFor[Config](), ""); err != nil {
+		return fmt.Errorf("interpolate shipped defaults: %w", err)
+	}
+	var shipped Config
+	if err := defaults.Decode(&shipped); err != nil {
+		return fmt.Errorf("decode shipped defaults: %w", err)
+	}
+	for name, p := range cfg.Providers {
+		d, ok := shipped.Providers[name]
+		if !ok {
+			continue
+		}
+		if p.Model == "" && d.Model != "" {
+			p.Model = d.Model
+		}
+		if p.SmallFastModel == "" && d.SmallFastModel != "" {
+			p.SmallFastModel = d.SmallFastModel
+		}
+		cfg.Providers[name] = p
+	}
+	return nil
 }

@@ -31,6 +31,20 @@ func TestShippedModelsAreOptIn(t *testing.T) {
 			}
 			primary := strings.ToUpper(name) + "_MODEL"
 			small := strings.ToUpper(name) + "_SMALL_MODEL"
+			if name == "zai" {
+				// zai ships GLM 1M-context defaults; env vars still override.
+				envOrDefault := func(key, fallback string) string {
+				if value := os.Getenv(key); value != "" {
+					return value
+				}
+				return fallback
+			}
+			require.Equal(t, "${"+primary+":-glm-5.3[1m]}", template.Model)
+			require.Equal(t, "${"+small+":-glm-5.3-flash[1m]}", template.SmallFastModel)
+			require.Equal(t, envOrDefault(primary, "glm-5.3[1m]"), loaded.Model)
+			require.Equal(t, envOrDefault(small, "glm-5.3-flash[1m]"), loaded.SmallFastModel)
+			return
+			}
 			require.Equal(t, "${"+primary+"}", template.Model)
 			require.Equal(t, "${"+small+"}", template.SmallFastModel)
 			require.Equal(t, os.Getenv(primary), loaded.Model)
@@ -52,6 +66,12 @@ func TestModelSelectionPreservesExplicitValues(t *testing.T) {
 				require.NoError(t, err)
 				cfg, err := parseConfig(data)
 				require.NoError(t, err)
+				if name == "zai" && model == "" {
+					// Omitted models fall back to zai's shipped GLM defaults.
+					require.Equal(t, "glm-5.3[1m]", cfg.Providers[name].Model)
+					require.Equal(t, "glm-5.3-flash[1m]", cfg.Providers[name].SmallFastModel)
+					return
+				}
 				require.Equal(t, model, cfg.Providers[name].Model)
 				require.Equal(t, model, cfg.Providers[name].SmallFastModel)
 			})
@@ -75,6 +95,29 @@ func TestOmittedModelsInheritOnlyUserEnvironment(t *testing.T) {
 			require.Equal(t, os.Getenv(strings.ToUpper(name)+"_SMALL_MODEL"), cfg.Providers[name].SmallFastModel)
 		})
 	}
+}
+
+func TestUpgradedTemplateGainsShippedModelDefaults(t *testing.T) {
+	t.Parallel()
+	// Pre-upgrade first-run configs pin the bare template, which resolves
+	// empty when ZAI_MODEL is unset; shipped defaults must still apply.
+	cfg, err := parseConfig([]byte(`providers:
+  zai:
+    authRequired: true
+    baseUrl: "https://api.z.ai/api/anthropic"
+    authToken: "${ZAI_API_KEY}"
+    model: "${ZAI_MODEL}"
+    smallFastModel: "${ZAI_SMALL_MODEL}"
+`))
+	require.NoError(t, err)
+	envOrDefault := func(key, fallback string) string {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+		return fallback
+	}
+	require.Equal(t, envOrDefault("ZAI_MODEL", "glm-5.3[1m]"), cfg.Providers["zai"].Model)
+	require.Equal(t, envOrDefault("ZAI_SMALL_MODEL", "glm-5.3-flash[1m]"), cfg.Providers["zai"].SmallFastModel)
 }
 
 func TestFirstRunWritesOptInModels(t *testing.T) {

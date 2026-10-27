@@ -6,7 +6,8 @@
 #   ${VAR:-default}  - replaced with env var value, or "default" if unset
 #
 # Model choices are user-owned: set model/smallFastModel or the env vars below.
-# No model IDs are selected by the shipped defaults.
+# Only zai ships model defaults (the GLM 1M-context pair); all other
+# providers select no model ID by default.
 # Priority: config file value (with env interpolation) > shipped default
 # Additionally, CCL_<PROVIDER>_API_KEY env vars override per-provider API keys.
 
@@ -33,8 +34,8 @@ providers:
     authRequired: true
     baseUrl: "https://api.z.ai/api/anthropic"
     authToken: "${ZAI_API_KEY}"
-    model: "${ZAI_MODEL}"
-    smallFastModel: "${ZAI_SMALL_MODEL}"
+    model: "${ZAI_MODEL:-glm-5.3[1m]}"
+    smallFastModel: "${ZAI_SMALL_MODEL:-glm-5.3-flash[1m]}"
   openrouter:
     authRequired: true
     baseUrl: "https://openrouter.ai/api"

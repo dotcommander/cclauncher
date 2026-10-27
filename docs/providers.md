@@ -86,23 +86,31 @@ ccl --provider minimax
 
 ```bash
 export ZAI_API_KEY="sk-..."
-export ZAI_MODEL="your-model-id"
-export ZAI_SMALL_MODEL="$ZAI_MODEL"
 ccl --provider zai
 ```
 
 | Field | Value |
 |-------|-------|
 | Endpoint | `https://api.z.ai/api/anthropic` |
-| Model | User-selected (`ZAI_MODEL`) |
-| Small/Fast | User-selected (`ZAI_SMALL_MODEL`) |
+| Model | `glm-5.3[1m]` by default; override with `ZAI_MODEL` |
+| Small/Fast | `glm-5.3-flash[1m]` by default; override with `ZAI_SMALL_MODEL` |
 | Env var | `ZAI_API_KEY` |
 
-`zai` supports model overrides without editing the config file:
+`zai` ships GLM 1M-context model defaults, so only the API key is required.
+Override models without editing the config file:
 
 ```bash
 export ZAI_MODEL="your-model-id"
 export ZAI_SMALL_MODEL="$ZAI_MODEL"
+```
+
+The `[1m]` suffix selects the 1M-token context variant. To use the full
+window instead of Claude Code auto-compacting at its default limit, raise
+the provider's context size:
+
+```yaml
+zai:
+  maxContextTokens: 1000000
 ```
 
 ### openrouter
