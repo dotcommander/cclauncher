@@ -1,6 +1,6 @@
 # Local Models
 
-CCL supports four local inference servers: LlamaBarn, LM Studio, llama.cpp, and omlx. All expose an API that Claude Code can reach directly — no internet connection needed for inference.
+CCL supports six local inference servers: LlamaBarn, LM Studio, llama.cpp, Ollama, vLLM, and omlx. All expose an API that Claude Code can reach directly — no internet connection needed for inference.
 
 CCL does not ship model IDs, including generic `local` aliases. Before launching,
 set the provider's `*_MODEL` variable to the model ID accepted by your server.
@@ -109,6 +109,87 @@ providers:
     authToken: "llamacpp"
     model: "${LLAMACPP_MODEL}"
     smallFastModel: "${LLAMACPP_SMALL_MODEL}"
+```
+
+## Ollama
+
+Ollama 0.14+ ships native Anthropic Messages API support, so Claude Code connects directly.
+
+### Start the server
+
+```bash
+ollama serve
+ollama pull qwen3-coder:30b
+```
+
+### Launch Claude Code
+
+```bash
+export OLLAMA_MODEL="qwen3-coder:30b"
+export OLLAMA_SMALL_MODEL="$OLLAMA_MODEL"
+ccl --provider ollama
+```
+
+By default CCL connects to `http://localhost:11434`. `OLLAMA_MODEL` must match a tag from `ollama list`; there is no fallback model.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Server address |
+| `OLLAMA_MODEL` | *(unset)* | Model tag (must match `ollama list`) |
+| `OLLAMA_SMALL_MODEL` | *(unset)* | Background/subagent model |
+| `OLLAMA_API_KEY` | `ollama` | Placeholder token; replace if your server requires auth |
+
+### Config override
+
+```yaml
+providers:
+  ollama:
+    baseUrl: "http://localhost:11434"
+    authToken: "ollama"
+    model: "qwen3-coder:30b"
+    smallFastModel: "qwen3-coder:30b"
+```
+
+## vLLM
+
+vLLM's built-in Anthropic-protocol entrypoint serves `/v1/messages`; Claude Code connects directly. See the vLLM Anthropic endpoint docs for the serving flags your build requires.
+
+### Start the server
+
+```bash
+vllm serve Qwen/Qwen3-Coder-30B-A3B-Instruct
+```
+
+### Launch Claude Code
+
+```bash
+export VLLM_MODEL="Qwen/Qwen3-Coder-30B-A3B-Instruct"
+export VLLM_SMALL_MODEL="$VLLM_MODEL"
+ccl --provider vllm
+```
+
+By default CCL connects to `http://localhost:8000`. Note: this matches the `omlx` default port; override `VLLM_BASE_URL` or `OMLX_BASE_URL` when running both.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `VLLM_BASE_URL` | `http://localhost:8000` | Server address |
+| `VLLM_MODEL` | *(unset)* | Served model name |
+| `VLLM_SMALL_MODEL` | *(unset)* | Background/subagent model |
+| `VLLM_API_KEY` | `vllm` | Placeholder token; replace with your server key if `--api-key` is set |
+
+### Config override
+
+```yaml
+providers:
+  vllm:
+    baseUrl: "http://localhost:8000"
+    authToken: "vllm"
+    model: "${VLLM_MODEL}"
+    smallFastModel: "${VLLM_SMALL_MODEL}"
 ```
 
 ## LlamaBarn

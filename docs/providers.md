@@ -1,6 +1,6 @@
 # Providers
 
-CCL ships with 11 provider endpoint templates across three categories. Models are user-selected, not shipped defaults. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
+CCL ships with 15 provider endpoint templates across three categories. Models are user-selected, not shipped defaults. CCL sets the correct `ANTHROPIC_*` environment variables and calls `claude` — no proxy or translation layer runs unless you configure transformer rules.
 
 ```bash
 ccl providers
@@ -156,6 +156,42 @@ export WAFER_MODEL="DeepSeek-V4.1-Flash"
 export WAFER_SMALL_MODEL="Qwen3.5-397B-A17B"
 ```
 
+### moonshot
+
+```bash
+export MOONSHOT_API_KEY="sk-..."
+export MOONSHOT_MODEL="your-model-id"
+export MOONSHOT_SMALL_MODEL="$MOONSHOT_MODEL"
+ccl --provider moonshot
+```
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://api.moonshot.ai/anthropic` |
+| Model | User-selected (`MOONSHOT_MODEL`) |
+| Small/Fast | User-selected (`MOONSHOT_SMALL_MODEL`) |
+| Env var | `MOONSHOT_API_KEY` |
+
+Moonshot exposes an Anthropic-compatible endpoint for its Kimi models — the K2.7 Code series is tuned for coding agents. Pick the model ID from Moonshot's API docs.
+
+### qwen
+
+```bash
+export QWEN_API_KEY="sk-..."
+export QWEN_MODEL="your-model-id"
+export QWEN_SMALL_MODEL="$QWEN_MODEL"
+ccl --provider qwen
+```
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `https://dashscope.aliyuncs.com/apps/anthropic` (override: `QWEN_BASE_URL`) |
+| Model | User-selected (`QWEN_MODEL`) |
+| Small/Fast | User-selected (`QWEN_SMALL_MODEL`) |
+| Env var | `QWEN_API_KEY` |
+
+Alibaba Model Studio exposes an Anthropic-compatible endpoint for Qwen models (for example the Qwen3-Coder series). The default endpoint is the pay-as-you-go DashScope host; regional workspace endpoints look like `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/apps/anthropic`, and subscription plans use dedicated hosts (for example `https://coding.dashscope.aliyuncs.com/apps/anthropic` for the Coding Plan) — override `QWEN_BASE_URL` accordingly. The key must match the endpoint's plan type, or the API returns 401 `invalid_api_key`.
+
 ## Anthropic (OAuth)
 
 ### claude
@@ -183,6 +219,8 @@ After configuring each provider's model using the variables below:
 ccl --provider llamabarn   # localhost:2276
 ccl --provider lmstudio    # localhost:1234
 ccl --provider llamacpp    # localhost:8080
+ccl --provider ollama      # localhost:11434
+ccl --provider vllm        # localhost:8000
 ccl --provider omlx        # localhost:8000
 ```
 
@@ -216,6 +254,28 @@ ccl --provider omlx        # localhost:8000
 | Auth | Any non-empty token — defaults to `llamacpp` |
 
 `llama-server` supports the Anthropic Messages API natively when started with `--port 8080`. CCL connects directly without a translation layer.
+
+### ollama
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `http://localhost:11434` (override: `OLLAMA_BASE_URL`) |
+| Model | User-selected (`OLLAMA_MODEL`) |
+| Small/Fast | User-selected (`OLLAMA_SMALL_MODEL`) |
+| Auth | `OLLAMA_API_KEY`, or local placeholder `ollama` |
+
+Ollama 0.14+ serves the Anthropic Messages API natively. After `ollama serve` and pulling a model, set `OLLAMA_MODEL` to the tag reported by `ollama list`.
+
+### vllm
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `http://localhost:8000` (override: `VLLM_BASE_URL`) |
+| Model | User-selected (`VLLM_MODEL`) |
+| Small/Fast | User-selected (`VLLM_SMALL_MODEL`) |
+| Auth | `VLLM_API_KEY`, or local placeholder `vllm` |
+
+vLLM's built-in Anthropic-protocol entrypoint serves `/v1/messages` (see vLLM's Anthropic endpoint docs for serving flags); set `VLLM_MODEL` to the served model name. Note the default port 8000 matches `omlx` — override one of them when running both.
 
 ### omlx
 

@@ -15,8 +15,8 @@ func getTestConfigPath() string {
 
 // expectedProviders is the canonical provider set shipped in testdata/config.yaml.
 var expectedProviders = []string{
-	"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer", "claude",
-	"llamabarn", "lmstudio", "llamacpp", "omlx",
+	"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer", "moonshot",
+	"qwen", "claude", "llamabarn", "lmstudio", "llamacpp", "ollama", "vllm", "omlx",
 }
 
 func TestGetProvider_AllProvidersExist(t *testing.T) {
@@ -63,10 +63,14 @@ func TestGetProvider_BaseURLs(t *testing.T) {
 		{"zai", "zai", "https://api.z.ai/api/anthropic"},
 		{"openrouter", "openrouter", "https://openrouter.ai/api"},
 		{"wafer", "wafer", "https://pass.wafer.ai"},
+		{"moonshot", "moonshot", "https://api.moonshot.ai/anthropic"},
+		{"qwen", "qwen", "https://dashscope.aliyuncs.com/apps/anthropic"},
 		{"claude", "claude", "https://api.anthropic.com"},
 		{"llamabarn", "llamabarn", "http://localhost:2276"},
 		{"lmstudio", "lmstudio", "http://localhost:1234"},
 		{"llamacpp", "llamacpp", "http://localhost:8080"},
+		{"ollama", "ollama", "http://localhost:11434"},
+		{"vllm", "vllm", "http://localhost:8000"},
 		{"omlx", "omlx", "http://localhost:8000"},
 	}
 
@@ -86,7 +90,7 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Providers with bearer-token auth via authToken env-interpolation.
-	bearerAuthProviders := []string{"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer"}
+	bearerAuthProviders := []string{"synthetic", "deepseek", "minimax", "zai", "openrouter", "wafer", "moonshot", "qwen"}
 	for _, name := range bearerAuthProviders {
 		t.Run(name+" uses auth token", func(t *testing.T) {
 			provider, _ := GetProvider(cfg, name)
@@ -99,7 +103,7 @@ func TestGetProvider_AuthenticationMethods(t *testing.T) {
 
 	// Optional-auth providers rely on either the claude CLI keychain or local
 	// servers that accept placeholder/no credentials.
-	optionalAuthProviders := []string{"claude", "llamabarn", "lmstudio", "llamacpp", "omlx"}
+	optionalAuthProviders := []string{"claude", "llamabarn", "lmstudio", "llamacpp", "ollama", "vllm", "omlx"}
 	for _, name := range optionalAuthProviders {
 		t.Run(name+" does not require configured auth", func(t *testing.T) {
 			provider, _ := GetProvider(cfg, name)
