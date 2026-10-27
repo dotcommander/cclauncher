@@ -102,8 +102,13 @@ func handleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 	if remembersSession(claudeArgs) {
 		// Best-effort: the child session already succeeded, so a failed save
 		// must not turn the launcher's exit status nonzero — warn and stand down.
-		if err := deps.remember(providerName, provider); err != nil {
+		// cfg.CLI is still the launch-time baseline: fields edited on disk since
+		// launch are preserved by the writer and reported here.
+		preserved, err := deps.remember(providerName, provider, cfg.CLI)
+		if err != nil {
 			_, _ = fmt.Fprintf(opts.ErrorOutput, "Warning: session succeeded but saving default selection failed: %v\n", err)
+		} else if len(preserved) > 0 {
+			_, _ = fmt.Fprintf(opts.ErrorOutput, "Warning: config %s changed since launch; kept your on-disk value\n", strings.Join(preserved, ", "))
 		}
 	}
 	return nil

@@ -9,7 +9,7 @@ import (
 
 type launchDependencies struct {
 	run      func(context.Context, config.Provider, config.OptimizationConfig, []string, CodeOptions) error
-	remember func(string, config.Provider) error
+	remember func(string, config.Provider, config.CLIConfig) ([]string, error)
 }
 
 // selectedModel records command-line model overrides rather than the configured

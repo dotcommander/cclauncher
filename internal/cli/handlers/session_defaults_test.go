@@ -35,13 +35,14 @@ func TestRememberSuccessfulSession(t *testing.T) {
 					finished = true
 					return nil
 				},
-				remember: func(name string, p config.Provider) error {
+				remember: func(name string, p config.Provider, launched config.CLIConfig) ([]string, error) {
 					require.True(t, finished)
 					require.Equal(t, "omlx", name)
 					require.Equal(t, "override", p.Model)
 					require.Equal(t, "small", p.SmallFastModel)
+					require.Equal(t, cfg.CLI, launched)
 					remembered = true
-					return nil
+					return nil, nil
 				},
 			}
 			err := handleCode(context.Background(), cfg, []string{"--provider", "omlx", "--model=override", "--print", "hello"}, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps)
@@ -71,7 +72,10 @@ func TestUnsuccessfulAndMetadataLaunchesDoNotRemember(t *testing.T) {
 				run: func(context.Context, config.Provider, config.OptimizationConfig, []string, CodeOptions) error {
 					return tc.err
 				},
-				remember: func(string, config.Provider) error { t.Fatal("must not remember"); return nil },
+				remember: func(string, config.Provider, config.CLIConfig) ([]string, error) {
+					t.Fatal("must not remember")
+					return nil, nil
+				},
 			}
 			err := handleCode(context.Background(), cfg, tc.args, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps)
 			require.ErrorIs(t, err, tc.err)
@@ -109,13 +113,33 @@ func TestRememberFailureWarnsButPreservesSuccess(t *testing.T) {
 		run: func(context.Context, config.Provider, config.OptimizationConfig, []string, CodeOptions) error {
 			return nil
 		},
-		remember: func(string, config.Provider) error { return errors.New("disk unavailable") },
+		remember: func(string, config.Provider, config.CLIConfig) ([]string, error) {
+			return nil, errors.New("disk unavailable")
+		},
 	}
 	var errOut bytes.Buffer
 	err := handleCode(context.Background(), cfg, nil, CodeOptions{Output: io.Discard, ErrorOutput: &errOut}, deps)
 	require.NoError(t, err)
 	require.Contains(t, errOut.String(), "Warning: session succeeded but saving default selection failed")
 	require.Contains(t, errOut.String(), "disk unavailable")
+}
+
+func TestPreservedFieldsWarnButPreserveSuccess(t *testing.T) {
+	t.Parallel()
+	optional := false
+	cfg := &config.Config{Providers: map[string]config.Provider{"local": {BaseURL: "http://localhost:8000", Model: "local", AuthRequired: &optional}}, CLI: config.CLIConfig{DefaultProvider: "local"}}
+	deps := launchDependencies{
+		run: func(context.Context, config.Provider, config.OptimizationConfig, []string, CodeOptions) error {
+			return nil
+		},
+		remember: func(string, config.Provider, config.CLIConfig) ([]string, error) {
+			return []string{"defaultModel", "defaultSmallFastModel"}, nil
+		},
+	}
+	var errOut bytes.Buffer
+	err := handleCode(context.Background(), cfg, nil, CodeOptions{Output: io.Discard, ErrorOutput: &errOut}, deps)
+	require.NoError(t, err)
+	require.Contains(t, errOut.String(), "Warning: config defaultModel, defaultSmallFastModel changed since launch")
 }
 
 func TestExplicitPrimaryAliasRestoresConfiguredModel(t *testing.T) {
@@ -140,7 +164,10 @@ func TestExplicitPrimaryAliasRestoresConfiguredModel(t *testing.T) {
 						require.Equal(t, args, actual)
 						return nil
 					},
-					remember: func(_ string, p config.Provider) error { require.Equal(t, want, p.Model); return nil },
+					remember: func(_ string, p config.Provider, _ config.CLIConfig) ([]string, error) {
+						require.Equal(t, want, p.Model)
+						return nil, nil
+					},
 				}
 				require.NoError(t, handleCode(context.Background(), cfg, args, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps))
 				require.Equal(t, "primary", cfg.Providers["local"].Model)
