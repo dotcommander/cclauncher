@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,27 +16,37 @@ import (
 
 const (
 	githubReleaseURL = "https://api.github.com/repos/dotcommander/cclauncher/releases/latest"
-	goInstallTarget  = "github.com/dotcommander/cclauncher/cmd/ccl@latest"
+	goModulePath     = "github.com/dotcommander/cclauncher"
 	updateTimeout    = 10 * time.Second
 )
 
 // HandleUpdate checks GitHub for a newer release and, unless --check was set,
-// runs `go install` to update the binary.
+// installs that exact release and verifies the binary before reporting success.
 func HandleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool) error {
 	return handleUpdate(ctx, out, errOut, checkOnly, GetVersion(), updateDeps{
 		fetch: fetchLatestVersion, lookPath: exec.LookPath,
-		install: func(ctx context.Context, path string) error {
-			cmd := exec.CommandContext(ctx, path, "install", goInstallTarget)
+		install: func(ctx context.Context, goPath, target string) error {
+			cmd := exec.CommandContext(ctx, goPath, "install", target)
 			cmd.Stdout, cmd.Stderr = out, errOut
 			return cmd.Run()
+		},
+		goEnv: func(ctx context.Context, goPath, name string) (string, error) {
+			value, err := exec.CommandContext(ctx, goPath, "env", name).Output()
+			return strings.TrimSpace(string(value)), err
+		},
+		goVersionM: func(ctx context.Context, goPath, binary string) (string, error) {
+			info, err := exec.CommandContext(ctx, goPath, "version", "-m", binary).Output()
+			return string(info), err
 		},
 	})
 }
 
 type updateDeps struct {
-	fetch    func(context.Context) (string, error)
-	lookPath func(string) (string, error)
-	install  func(context.Context, string) error
+	fetch      func(context.Context) (string, error)
+	lookPath   func(string) (string, error)
+	install    func(context.Context, string, string) error           // (ctx, goPath, module@version)
+	goEnv      func(context.Context, string, string) (string, error) // (ctx, goPath, variable name)
+	goVersionM func(context.Context, string, string) (string, error) // (ctx, goPath, binary path)
 }
 
 func handleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool, current string, deps updateDeps) error {
@@ -63,6 +74,9 @@ func handleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool, cu
 	if checkOnly {
 		return writeUpdateStatus(out, "Update available — run 'ccl update' to install\n")
 	}
+	if !installableVersion(latest) {
+		return writeUpdateStatus(out, "Release %s is not an installable module version; installation skipped\n", latest)
+	}
 
 	goPath, err := deps.lookPath("go")
 	if err != nil {
@@ -71,14 +85,69 @@ func handleUpdate(ctx context.Context, out, errOut io.Writer, checkOnly bool, cu
 	if err := writeUpdateStatus(out, "Updating...\n"); err != nil {
 		return err
 	}
-	if err := deps.install(ctx, goPath); err != nil {
+	if err := deps.install(ctx, goPath, fmt.Sprintf("%s/cmd/ccl@%s", goModulePath, latest)); err != nil {
 		return fmt.Errorf("go install: %w", err)
 	}
+	installed, err := verifyInstalledVersion(ctx, deps, goPath, latest)
+	if err != nil {
+		return err
+	}
 
-	if err := writeUpdateStatus(out, "Updated to %s\n", latest); err != nil {
+	if err := writeUpdateStatus(out, "Updated to %s\n", installed); err != nil {
 		return err
 	}
 	return writeUpdateStatus(out, "Restart your terminal or run 'hash -r' to pick up the new binary\n")
+}
+
+// installableVersion reports whether `go install <module>@<version>` accepts
+// the version: Go module versions need the leading "v" plus the stable numeric
+// semver shape compareStableVersions enforces.
+func installableVersion(version string) bool {
+	if !strings.HasPrefix(version, "v") {
+		return false
+	}
+	_, ok := compareStableVersions(version, version)
+	return ok
+}
+
+// verifyInstalledVersion resolves the just-installed ccl binary (GOBIN, then
+// GOPATH/bin) and reads the module version embedded in it, so "Updated" is only
+// printed for a binary that provably carries the fetched release.
+func verifyInstalledVersion(ctx context.Context, deps updateDeps, goPath, expected string) (string, error) {
+	binDir, err := deps.goEnv(ctx, goPath, "GOBIN")
+	if err != nil {
+		return "", fmt.Errorf("resolve install location: %w", err)
+	}
+	if binDir == "" {
+		if binDir, err = deps.goEnv(ctx, goPath, "GOPATH"); err != nil {
+			return "", fmt.Errorf("resolve install location: %w", err)
+		}
+		binDir = filepath.Join(binDir, "bin")
+	}
+	output, err := deps.goVersionM(ctx, goPath, filepath.Join(binDir, "ccl"))
+	if err != nil {
+		return "", fmt.Errorf("verify installed ccl: %w", err)
+	}
+	installed, ok := moduleVersionFromBuildInfo(output)
+	if !ok {
+		return "", fmt.Errorf("verification failed: installed ccl does not report a %s module version", goModulePath)
+	}
+	if installed != expected {
+		return "", fmt.Errorf("verification failed: installed ccl reports version %s, expected %s", installed, expected)
+	}
+	return installed, nil
+}
+
+// moduleVersionFromBuildInfo scans `go version -m` output for the main module
+// line ("mod\t<path>\t<version>\t<hash>") and returns the cclauncher version.
+func moduleVersionFromBuildInfo(output string) (string, bool) {
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 && fields[0] == "mod" && fields[1] == goModulePath {
+			return fields[2], true
+		}
+	}
+	return "", false
 }
 
 func writeUpdateStatus(out io.Writer, format string, args ...any) error {

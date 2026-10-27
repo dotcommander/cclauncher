@@ -100,8 +100,10 @@ func handleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 		return err
 	}
 	if remembersSession(claudeArgs) {
+		// Best-effort: the child session already succeeded, so a failed save
+		// must not turn the launcher's exit status nonzero — warn and stand down.
 		if err := deps.remember(providerName, provider); err != nil {
-			return fmt.Errorf("session succeeded but saving default selection failed: %w", err)
+			_, _ = fmt.Fprintf(opts.ErrorOutput, "Warning: session succeeded but saving default selection failed: %v\n", err)
 		}
 	}
 	return nil

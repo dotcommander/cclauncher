@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -100,7 +101,7 @@ func TestRememberedPairIsUsedByNextLaunchAndPicker(t *testing.T) {
 	require.Equal(t, "new-model", selectedModel(p, []string{"--model", "new-model"}).Model)
 }
 
-func TestRememberFailureIsReported(t *testing.T) {
+func TestRememberFailureWarnsButPreservesSuccess(t *testing.T) {
 	t.Parallel()
 	optional := false
 	cfg := &config.Config{Providers: map[string]config.Provider{"local": {BaseURL: "http://localhost:8000", Model: "local", AuthRequired: &optional}}, CLI: config.CLIConfig{DefaultProvider: "local"}}
@@ -110,8 +111,11 @@ func TestRememberFailureIsReported(t *testing.T) {
 		},
 		remember: func(string, config.Provider) error { return errors.New("disk unavailable") },
 	}
-	err := handleCode(context.Background(), cfg, nil, CodeOptions{Output: io.Discard, ErrorOutput: io.Discard}, deps)
-	require.ErrorContains(t, err, "session succeeded but saving default selection failed")
+	var errOut bytes.Buffer
+	err := handleCode(context.Background(), cfg, nil, CodeOptions{Output: io.Discard, ErrorOutput: &errOut}, deps)
+	require.NoError(t, err)
+	require.Contains(t, errOut.String(), "Warning: session succeeded but saving default selection failed")
+	require.Contains(t, errOut.String(), "disk unavailable")
 }
 
 func TestExplicitPrimaryAliasRestoresConfiguredModel(t *testing.T) {

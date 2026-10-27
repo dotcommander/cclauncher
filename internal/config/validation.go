@@ -15,6 +15,14 @@ func ValidateProviderEndpoint(p Provider) error {
 	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
 		return fmt.Errorf("baseUrl must be an absolute HTTP(S) URL")
 	}
+	// Proxy forwarding appends the request path to this base verbatim, so a
+	// query string or fragment here would corrupt every upstream target URL.
+	if u.RawQuery != "" || u.ForceQuery {
+		return fmt.Errorf("baseUrl must not include a query string")
+	}
+	if u.Fragment != "" {
+		return fmt.Errorf("baseUrl must not include a fragment")
+	}
 	if strings.TrimSpace(p.Model) == "" && !isNativeAnthropic(p) {
 		return fmt.Errorf("model must be configured explicitly")
 	}
