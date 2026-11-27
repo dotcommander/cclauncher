@@ -13,9 +13,12 @@ import (
 )
 
 const (
-	developmentVersion = "dev"
-	providerFlag       = "--provider"
-	providerShortFlag  = "-p"
+	developmentVersion   = "dev"
+	providerFlag         = "--provider"
+	providerShortFlag    = "-p"
+	yoloFlag             = "--yolo"
+	skipPermissions      = "--dangerously-skip-permissions"
+	allowSkipPermissions = "--allow-dangerously-skip-permissions"
 )
 
 // GetVersion returns the ldflags-provided version, the installed module
@@ -55,7 +58,7 @@ func HandleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 
 func handleCode(ctx context.Context, cfg *config.Config, args []string, opts CodeOptions, deps launchDependencies) error {
 
-	providerName, claudeArgs, err := extractProviderFromArgs(args)
+	providerName, claudeArgs, err := parseLaunchArgs(args)
 	if err != nil {
 		return err
 	}
@@ -114,14 +117,9 @@ func handleCode(ctx context.Context, cfg *config.Config, args []string, opts Cod
 	return nil
 }
 
-// extractProviderFromArgs finds and removes the CCL provider selector from raw
-// args. Supports "--provider value", "--provider=value", and the short form
-// "-p value" — but the short form is only claimed when it is the FIRST
-// argument pair, because claude itself uses `-p` for print mode and any later
-// `-p` must pass through verbatim.
-// Returns the provider name (empty if not found), the remaining args, and a
-// usage error if a CCL-owned provider selector is missing its value.
-func extractProviderFromArgs(args []string) (string, []string, error) {
+// parseLaunchArgs removes CCL provider selectors and expands --yolo only
+// before any Claude arguments. Only a leading -p selects a provider.
+func parseLaunchArgs(args []string) (string, []string, error) {
 	result := make([]string, 0, len(args))
 	var provider string
 
@@ -135,6 +133,7 @@ func extractProviderFromArgs(args []string) (string, []string, error) {
 		start = 2
 	}
 
+	var yolo, forwarding bool
 	for i := start; i < len(args); i++ {
 		arg := args[i]
 
@@ -160,6 +159,14 @@ func extractProviderFromArgs(args []string) (string, []string, error) {
 			continue
 		}
 
+		if arg == yoloFlag && !forwarding {
+			if !yolo {
+				result = append(result, skipPermissions, allowSkipPermissions)
+				yolo = true
+			}
+			continue
+		}
+		forwarding = true
 		result = append(result, arg)
 	}
 

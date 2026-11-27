@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -95,6 +96,39 @@ func TestDoctorFlagsParse(t *testing.T) {
 	}
 	if tree.Doctor.Provider != "x" || !tree.Doctor.JSON || !tree.Doctor.CheckNet {
 		t.Fatalf("doctor = %#v", tree.Doctor)
+	}
+}
+
+func TestYoloLaunchPreservesRestrictedMode(t *testing.T) {
+	// Serial: this test sets the process environment for child lookup and config.
+	if testing.Short() || runtime.GOOS == "windows" {
+		t.Skip("requires a POSIX shell")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", home+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("CLAUDE_CODE_RESTRICTED", "1")
+	stub := "#!/bin/sh\nprintf 'restricted=%s\\n' \"$CLAUDE_CODE_RESTRICTED\"\nprintf '%s\\n' \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(home, "claude"), []byte(stub), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"yolo", []string{"--provider", "claude", "--yolo", "--help"}, "restricted=1\n--dangerously-skip-permissions\n--allow-dangerously-skip-permissions\n--help\n"},
+		{"normal", []string{"--provider", "claude", "--help"}, "restricted=1\n--help\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			if err := run(t.Context(), tc.args, strings.NewReader(""), &out, &errOut); err != nil {
+				t.Fatalf("run(%v): %v\n%s", tc.args, err, &errOut)
+			}
+			if out.String() != tc.want {
+				t.Fatalf("Claude received %q, want %q", out.String(), tc.want)
+			}
+		})
 	}
 }
 

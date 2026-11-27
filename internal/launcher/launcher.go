@@ -17,8 +17,7 @@ import (
 )
 
 // SetupEnvironment prepares environment variables for Claude Code, starting
-// from the parent environment with any pre-existing ANTHROPIC_/CLAUDE_CODE_
-// entries stripped (to prevent parent-shell leakage).
+// from the parent environment with inherited provider settings stripped.
 func SetupEnvironment(p config.Provider, opt config.OptimizationConfig) []string {
 	env := filterAnthropicEnv(os.Environ())
 
@@ -72,15 +71,16 @@ func SetupEnvironment(p config.Provider, opt config.OptimizationConfig) []string
 	return env
 }
 
-// filterAnthropicEnv returns the parent environment minus ANTHROPIC_* and
-// CLAUDE_CODE_* entries so the child process sees only our curated values.
+// filterAnthropicEnv strips inherited ANTHROPIC_* and CLAUDE_CODE_* entries
+// except for CLAUDE_CODE_RESTRICTED, which is a launch restriction.
 // Bare-named Claude flags (DISABLE_AUTOUPDATER, API_TIMEOUT_MS, etc.) are
 // intentionally left intact so users can still override them from the parent
 // shell — SetupEnvironment only writes them when a config value is non-zero.
 func filterAnthropicEnv(parent []string) []string {
 	out := make([]string, 0, len(parent))
 	for _, e := range parent {
-		if strings.HasPrefix(e, "ANTHROPIC_") || strings.HasPrefix(e, "CLAUDE_CODE_") {
+		if !strings.HasPrefix(e, "CLAUDE_CODE_RESTRICTED=") &&
+			(strings.HasPrefix(e, "ANTHROPIC_") || strings.HasPrefix(e, "CLAUDE_CODE_")) {
 			continue
 		}
 		out = append(out, e)

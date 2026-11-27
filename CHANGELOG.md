@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.8 (2026-11-27)
+
+### Added
+
+- Add the opt-in `--yolo` launch flag for Claude Code permission bypass. Claude Code still applies its own restrictions and first-use confirmation. Use this flag only in an isolated environment.
+
+### Fixed
+
+- Preserve `CLAUDE_CODE_RESTRICTED` when launching Claude Code while continuing to strip inherited provider settings.
+
+### Changed
+
+- Update Bubble Tea and its terminal and YAML dependencies.
+
 ## v0.5.6 (2026-10-22)
 
 ### Fixed

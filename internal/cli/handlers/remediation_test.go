@@ -28,7 +28,7 @@ func TestProviderDelimiterOwnership(t *testing.T) {
 	} {
 		t.Run(tc.provider+tc.args[0], func(t *testing.T) {
 			t.Parallel()
-			p, args, err := extractProviderFromArgs(tc.args)
+			p, args, err := parseLaunchArgs(tc.args)
 			if err != nil || p != tc.provider || !reflect.DeepEqual(args, tc.want) {
 				t.Fatalf("got %s %v %v", p, args, err)
 			}

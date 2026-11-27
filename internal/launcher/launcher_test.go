@@ -29,7 +29,7 @@ func envMap(env []string) map[string]string {
 	return m
 }
 
-func TestFilterAnthropicEnv_RemovesAnthropicAndClaudeCodePrefixes(t *testing.T) {
+func TestFilterAnthropicEnv_StripsProviderSettingsButKeepsRestrictedMode(t *testing.T) {
 	t.Parallel()
 
 	parent := []string{
@@ -37,6 +37,8 @@ func TestFilterAnthropicEnv_RemovesAnthropicAndClaudeCodePrefixes(t *testing.T) 
 		"ANTHROPIC_API_KEY=leak",
 		"CLAUDE_CODE_OAUTH_TOKEN=leak",
 		"CLAUDE_CODE_SUBAGENT_MODEL=leak",
+		"CLAUDE_CODE_RESTRICTED=1",
+		"CLAUDE_CODE_RESTRICTED_OTHER=leak",
 		"PATH=/usr/bin:/bin",
 		"HOME=/home/user",
 		// Bare optimization variables — must be preserved so parent shell can
@@ -53,15 +55,16 @@ func TestFilterAnthropicEnv_RemovesAnthropicAndClaudeCodePrefixes(t *testing.T) 
 	got := filterAnthropicEnv(parent)
 	gotMap := envMap(got)
 
-	// ANTHROPIC_* and CLAUDE_CODE_* entries must be gone.
-	for _, e := range got {
-		if strings.HasPrefix(e, "ANTHROPIC_") || strings.HasPrefix(e, "CLAUDE_CODE_") {
-			t.Errorf("filterAnthropicEnv left prefixed entry %q in output", e)
+	// Only the exact restricted-mode key survives among prefixed entries.
+	for k := range gotMap {
+		if k != "CLAUDE_CODE_RESTRICTED" && (strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_")) {
+			t.Errorf("filterAnthropicEnv left prefixed key %q in output", k)
 		}
 	}
 
-	// Unrelated entries must survive.
+	// Restricted mode and unrelated entries must survive.
 	wantPreserved := map[string]string{
+		"CLAUDE_CODE_RESTRICTED":       "1",
 		"PATH":                         "/usr/bin:/bin",
 		"HOME":                         "/home/user",
 		"DISABLE_AUTOUPDATER":          "1",

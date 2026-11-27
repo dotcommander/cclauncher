@@ -34,7 +34,7 @@ func TestResolvedVersion(t *testing.T) {
 	}
 }
 
-func TestExtractProviderFromArgs(t *testing.T) {
+func TestParseLaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -92,6 +92,33 @@ func TestExtractProviderFromArgs(t *testing.T) {
 			wantClaude: []string{"hello world"},
 		},
 		{
+			name:       "yolo alone",
+			args:       []string{"--yolo"},
+			wantClaude: []string{"--dangerously-skip-permissions", "--allow-dangerously-skip-permissions"},
+		},
+		{
+			name:       "yolo with provider and Claude flags",
+			args:       []string{"-p", "deepseek", "--yolo", "-p", "hello"},
+			wantProv:   "deepseek",
+			wantClaude: []string{"--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "-p", "hello"},
+		},
+		{
+			name:       "repeated yolo expands once",
+			args:       []string{"--yolo", "--provider=deepseek", "--yolo", "--continue"},
+			wantProv:   "deepseek",
+			wantClaude: []string{"--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "--continue"},
+		},
+		{
+			name:       "Claude option value is not rewritten",
+			args:       []string{"--append-system-prompt", "--yolo"},
+			wantClaude: []string{"--append-system-prompt", "--yolo"},
+		},
+		{
+			name:       "yolo after delimiter passes through",
+			args:       []string{"--", "--yolo"},
+			wantClaude: []string{"--yolo"},
+		},
+		{
 			name:       "dangerously-skip-permissions passes through",
 			args:       []string{"--dangerously-skip-permissions", "hello"},
 			wantProv:   "",
@@ -146,7 +173,7 @@ func TestExtractProviderFromArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			gotProv, gotClaude, err := extractProviderFromArgs(tt.args)
+			gotProv, gotClaude, err := parseLaunchArgs(tt.args)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return

@@ -149,7 +149,9 @@ The `optimization` block controls environment variables passed to every `claude`
 | `maxOutputTokens` | `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | `200000` | Reduce to limit output length |
 | `nodeMaxOldSpaceSize` | `NODE_OPTIONS=--max-old-space-size=N` | `8192` | Increase for very large codebases |
 
-> **Note:** CCL strips any `ANTHROPIC_*` and `CLAUDE_CODE_*` variables from the parent shell before launching `claude`. Without stripping, a stale `ANTHROPIC_BASE_URL` from a previous session would silently route your provider-switched request to the wrong endpoint — and you'd see it as an auth failure, not a misroute. Bare variables such as `DISABLE_*` and `API_TIMEOUT_MS` are not stripped, but enabled or positive CCL settings override their parent-shell values. Disable or zero the corresponding CCL setting to retain a bare parent value. `NODE_OPTIONS` is likewise replaced when its CCL setting is positive. `ANTHROPIC_*` and `CLAUDE_CODE_*` parent values remain stripped even when a setting is disabled.
+> **Note:** CCL strips inherited `ANTHROPIC_*` and `CLAUDE_CODE_*` variables before launching `claude`, even when a corresponding CCL setting is disabled. This keeps a stale `ANTHROPIC_BASE_URL` from routing requests to the wrong provider. The exception is `CLAUDE_CODE_RESTRICTED`, which CCL forwards unchanged so Claude Code can enforce restricted mode.
+>
+> Bare variables such as `DISABLE_*` and `API_TIMEOUT_MS` are not stripped, but enabled or positive CCL settings override their parent-shell values. Disable or zero the corresponding CCL setting to retain a bare parent value. `NODE_OPTIONS` is likewise replaced when its CCL setting is positive.
 
 ## Provider Fields Reference
 

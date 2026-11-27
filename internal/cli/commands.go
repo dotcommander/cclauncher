@@ -50,8 +50,7 @@ func (updateCommand) Help() string {
 		"Use --check to report availability without changing the installed binary."
 }
 
-// Execute routes CCL-owned subcommands through Kong and forwards every other
-// argument verbatim to Claude Code.
+// Execute routes CCL subcommands through Kong and launch arguments to Claude Code.
 func Execute(ctx context.Context) error {
 	return run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
 }
@@ -210,13 +209,17 @@ func writeCommandHelp(command string, out, errOut io.Writer) error {
 }
 
 func writeRootHelp(out io.Writer) error {
-	_, err := fmt.Fprint(out, `Usage: ccl [flags passed to Claude Code]
+	_, err := fmt.Fprint(out, `Usage: ccl [launch flags] [Claude Code arguments]
        ccl <command> [flags]
 
 Launch Claude Code with different LLM providers.
 
 Use --provider PROVIDER (or leading -p PROVIDER) to select a provider.
-Other launch arguments are passed to Claude Code. The first -- ends CCL parsing.
+Use --yolo before Claude arguments to pass both Claude bypass flags:
+  --dangerously-skip-permissions
+  --allow-dangerously-skip-permissions
+Claude Code still enforces its own permission restrictions and warning.
+The first -- ends CCL parsing.
 Run bare ccl at a terminal to pick interactively.
 
 Examples:

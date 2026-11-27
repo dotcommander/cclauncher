@@ -42,15 +42,18 @@ ccl --provider deepseek              # skips the picker; success remembers choic
 ccl --provider synthetic "fix the null pointer in main.go"
 ```
 
-Launch arguments other than CCL provider selectors pass through to `claude` unchanged. The first `--` is consumed by CCL and ends provider parsing; subsequent arguments, including later `--` delimiters, pass through.
+Put `--yolo` before any Claude Code arguments, for example `ccl --provider deepseek --yolo --continue`. CCL consumes its first `--` and forwards what follows unchanged.
 
 | Command | Description |
 |---------|-------------|
 | `ccl --provider <name>` | Select a provider; successful sessions remember it |
+| `ccl --yolo` | Pass `--dangerously-skip-permissions` and `--allow-dangerously-skip-permissions` to Claude Code |
 | `ccl providers` | List providers and whether each key is set |
 | `ccl doctor [--provider <name>] [--json] [--check-net]` | Check provider configuration and optional reachability |
 | `ccl update [--check]` | Update CCL |
 | `ccl version` | Print the version |
+
+Use bypass mode only in an isolated environment. CCL does not record consent or override Claude Code’s restrictions. Claude Code may show a first-use warning; accept it in an interactive session before using bypass mode in a background session. See [Claude Code permission modes](https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode).
 
 **Note on `-p`:** CCL uses `-p` for `--provider`; Claude Code uses `-p` for print mode. Only a leading `-p PROVIDER` pair belongs to CCL. Later `-p` arguments belong to Claude Code. CCL recognizes `--provider` before its first `--` delimiter.
 
